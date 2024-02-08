@@ -231,3 +231,8 @@ fpga_top_v4.6.1 (01.02.2024)
 fpga_top_v4.6.2 (02.02.2024)
     - same top-level as fpga_top_v4.6.1
     - Configurable chiplet latencies in interfaces between TCU and Rocket/BOOM cores
+
+fpga_top_v4.8.0 (05.02.2024)
+    - same TCUs as fpga_top_v4.6.1
+    - added AES and hash accelerator incl. ASM to PM3 and PM4, respectively
+    - removed Rocket cores from these tile locations

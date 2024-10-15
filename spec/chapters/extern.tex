@@ -67,11 +67,17 @@ description of the tile. The description is set by the hardware and cannot be ch
       \item \texttt{NIC} (4): a network interface card attached to the core
       \item \texttt{SERIAL} (8): a serial interface attached to the core
       \item \texttt{IMEM} (16): the tile has an internal memory
+      \item \textit{reserved} (32)
+      \item \texttt{PicoRV} (64): the tile contains a 32-bit PicoRV core
+      \item \texttt{ACC-AES} (128): the tile contains an AES accelerator
+      \item \texttt{ACC-Hash} (256): the tile contains a hashing accelerator
+      \item \texttt{CVA6-Ara} (512): the tile contains a CVA6 core with Ara vector co-processor
     \end{itemize}
     \item[isa] the instruction set architecture:
     \begin{itemize}
       \item \texttt{NONE} (0): dummy ISA for memory tiles
-      \item \texttt{RISCV} (1)
+      \item \texttt{RISCV64} (1)
+      \item \texttt{RISCV32} (2)
     \end{itemize}
     \item[type] the type of tile:
     \begin{itemize}

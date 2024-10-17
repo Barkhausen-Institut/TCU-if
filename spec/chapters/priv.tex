@@ -10,7 +10,7 @@ requests}, which are raised by the TCU and answered by the privileged software. 
 interface is configured via the \texttt{PRIV\_CTRL} register, shown below:
 
 \setlength{\regWidth}{.95\textwidth}
-\begin{register}{H}{PRIV\_CTRL}{\texttt{0xF000\_2008}}
+\begin{register}{H}{PRIV\_CTRL}{\texttt{0xF000\_1008}}
   \regfield[gray!20]{reserved}{63}{1}{{uninitialized}}%
   \regfield{pmp}{1}{0}{0}%
   \reglabel{Reset}\regnewline%
@@ -24,7 +24,7 @@ To support the privileged software in the management of multiple activities or v
 privileged commands are used, which can be performed by writing to \texttt{PRIV\_CMD}. The register
 is defined as follows:
 
-\begin{register}{H}{PRIV\_CMD}{\texttt{0xF000\_2010}}
+\begin{register}{H}{PRIV\_CMD}{\texttt{0xF000\_1010}}
   \regfieldb{arg0}{55}{9}%
   \regfieldb{err}{5}{4}%
   \regfieldb{op}{4}{0}\regnewline%
@@ -43,7 +43,7 @@ opcodes lead to \texttt{err} being set to an a non-zero value.
 its receive EPs in the \texttt{CUR\_ACT} register:
 
 \setlength{\regWidth}{.95\textwidth}
-\begin{register}{H}{CUR\_ACT}{\texttt{0xF000\_2020}}
+\begin{register}{H}{CUR\_ACT}{\texttt{0xF000\_1020}}
   \regfield[gray!20]{reserved}{32}{32}{{uninitialized}}%
   \regfield{msgs}{16}{16}{0}%
   \regfield{id}{16}{0}{1111111111111111}%
@@ -68,7 +68,8 @@ to an \texttt{UNKNOWN\_CMD} error.
   \item \texttt{INS\_TLB} (3): insert an entry into the TLB, \extend{}
   \item \texttt{XCHG\_ACT} (4): change the activity, \extstart{tilemux}
   \item \texttt{SET\_TIMER} (5): start/stop the timer,
-  \item \texttt{ABORT\_CMD} (6): abort the unprivileged command. \extend{}
+  \item \texttt{ABORT\_CMD} (6): abort the unprivileged command.
+  \item \texttt{FETCH\_IRQ} (7): fetch and acknowledge the most recent IRQ. \extend{}
 \end{itemize}
 
 \section{Pseudo Code Building Blocks}
@@ -98,7 +99,9 @@ several building blocks:
   so that \texttt{read\_local()} or \texttt{write\_local()} return the \texttt{ABORT} error (see
   \rref{sec:unprivcmdspseudo}). Returns true if it was aborted.
   \item \texttt{resume\_local\_xfer()}:\\
-  resumes a previously paused local transfer (due to an address translation). \extend{}
+  resumes a previously paused local transfer (due to an address translation).
+  \item \texttt{pending\_irq()}:\\
+  returns the first interrupt in the queue of not yet completed interrupts. \extend{}
   \item \texttt{priv\_stop(error)}: \extstart{vm}\\
   stop the execution of the privileged command by setting the opcode in \texttt{PRIV\_CMD} to 0 and
   the error code to the given error. \extend{}
@@ -212,6 +215,28 @@ flag.
     $PRIV\_CMD.op \gets 0$\;
     \caption{The TCU's \texttt{ABORT\_CMD} command.}
 \end{algorithm}
+
+\subsection{\texttt{FETCH\_IRQ}}
+
+\begin{algorithm}[H]
+    $irq \gets pending\_irq()$\;
+    \uIf{not irq}{
+        $priv\_stop(NO\_IRQ)$\;
+    }
+    \BlankLine
+    $irq.ack\_and\_remove()$\;
+
+    $irq \gets pending\_irq()$\;
+    \uIf{irq}{
+        $irq.trigger()$\;
+    }
+    \BlankLine
+    $PRIV\_CMD.arg0 \gets irq.number$\;
+    $PRIV\_CMD.op \gets 0$\;
+    \caption{The TCU's \texttt{FETCH\_IRQ} command.}
+\end{algorithm}
+
+The IRQ number (\texttt{irq.number}) is either 0 for CU requests or 1 for timer interrupts.
 \extend{}
 
 \extstart{vmtilex}
@@ -277,7 +302,7 @@ The following pseudo code describes the TCU's behavior regarding CU requests in 
 
 \subsection{Registers}
 
-\begin{register}{H}{CU\_REQ}{\texttt{0xF000\_2000}}
+\begin{register}{H}{CU\_REQ}{\texttt{0xF000\_1000}}
   \regfieldb[gray!60]{}{61}{3}%
   \regfieldb{type}{3}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
@@ -288,7 +313,7 @@ The following pseudo code describes the TCU's behavior regarding CU requests in 
 \noindent As the \texttt{CU\_REQ} register is used for different kinds of requests and responses,
 most of the bits depend on the type of request/response, defined in the following.
 
-\begin{register}{H}{CU\_REQ for foreign message requests}{\texttt{0xF000\_2000}}
+\begin{register}{H}{CU\_REQ for foreign message requests}{\texttt{0xF000\_1000}}
   \regfieldb{act}{16}{48}%
   \regfieldb[gray!20]{reserved}{29}{19}%
   \regfieldb{ep}{16}{3}%
@@ -299,7 +324,7 @@ most of the bits depend on the type of request/response, defined in the followin
   \end{reglist}\end{regdesc}
 \end{register}
 
-\begin{register}{H}{CU\_REQ for PMP failure requests}{\texttt{0xF000\_2000}}
+\begin{register}{H}{CU\_REQ for PMP failure requests}{\texttt{0xF000\_1000}}
   \regfieldb{phys}{32}{32}%
   \regfieldb[gray!20]{reserved}{23}{9}%
   \regfieldb{error}{5}{4}%
@@ -318,7 +343,7 @@ most of the bits depend on the type of request/response, defined in the followin
   \end{reglist}\end{regdesc}
 \end{register}
 
-\begin{register}{H}{CU\_REQ for responses}{\texttt{0xF000\_2000}}
+\begin{register}{H}{CU\_REQ for responses}{\texttt{0xF000\_1000}}
   \regfieldb[gray!20]{reserved}{61}{3}%
   \regfieldb{type}{3}{0}\regnewline%
 \end{register}

@@ -67,7 +67,7 @@ description of the tile. The description is set by the hardware and cannot be ch
       \item \texttt{NIC} (4): a network interface card attached to the core
       \item \texttt{SERIAL} (8): a serial interface attached to the core
       \item \texttt{IMEM} (16): the tile has an internal memory
-      \item \textit{reserved} (32)
+      \item \texttt{IEPS} (32): the tile has internal endpoints
       \item \texttt{PicoRV} (64): the tile contains a 32-bit PicoRV core
       \item \texttt{ACC-AES} (128): the tile contains an AES accelerator
       \item \texttt{ACC-Hash} (256): the tile contains a hashing accelerator
@@ -89,6 +89,35 @@ description of the tile. The description is set by the hardware and cannot be ch
 
 \noindent Note that other values and bits are currently not defined. The memory size is 0 if the
 attribute \texttt{IMEM} is not set and the size of the internal memory in 4~KiB pages otherwise.
+
+\section{Endpoints}
+
+The TCU provides two external registers that describe the available endpoints: \texttt{EPS\_ADDR}
+and \texttt{EPS\_SIZE}. The former specifies the address of the memory region that holds the
+endpoints (a pair of the tile id and the offset within the tile). The latter specifies the size of
+this region in bytes, determining the number of available endpoints.
+
+Each TCU has either internal endpoints or external endpoints (defined at hardware construction
+time). Internal endpoints are embedded into the TCU and therefore have a fixed size. In this case,
+\texttt{EPS\_ADDR} is ignored and \texttt{EPS\_SIZE} holds the size of this internal endpoint
+region. However, writes to \texttt{EPS\_SIZE} are ignored. A TCU with external endpoints uses
+\texttt{EPS\_ADDR} to read/write endpoints from/to the specified memory region. In this case,
+software defines both \texttt{EPS\_ADDR} and \texttt{EPS\_SIZE}. If the TCU has internal endpoints,
+\texttt{TILE\_DESC.attr} has the bit \texttt{IEPS} set.
+
+Both \texttt{EPS\_ADDR.offset} and \texttt{EPS\_SIZE} need to be 32-byte aligned (size of an
+endpoint). Note also that if the TCU caches external endpoints, the cache is invalidated upon reset.
+
+\begin{register}{H}{EPS\_ADDR}{\texttt{0xF000\_0018}}
+  \regfieldb{chip}{6}{58}%
+  \regfieldb{tile}{8}{50}%
+  \regfieldb{offset}{50}{0}\regnewline%
+  \begin{regdesc}\begin{reglist}
+    \item[chip] the chip id for the endpoint region
+    \item[tile] the tile id for the endpoint region
+    \item[offset] the offset of the endpoint region within the tile
+  \end{reglist}\end{regdesc}
+\end{register}
 
 \section{External Commands}
 

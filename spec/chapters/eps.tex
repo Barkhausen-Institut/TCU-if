@@ -3,11 +3,12 @@
 The TCU has a number of \emph{endpoints}~(EPs) to establish communication channels, which can be
 configured to three different EP types: \emph{send EPs} and \emph{receive EPs} are used for message
 passing, whereas \emph{memory EPs} are used for RDMA-like memory access. Each EP is represented by a
-TCU register and can be configured (at runtime) to one of these EP types. Each EP consists of 192
+TCU register and can be configured (at runtime) to one of these EP types. Each EP consists of 256
 bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity that can use the EP and
-173 bits (shown as dark grey below), whose meaning depends on the EP type:\\[.1em]
+237 bits (shown as dark grey below), whose meaning depends on the EP type:\\[.1em]
 
 \begin{register}{H}{Endpoint}{}
+  \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{45}{19}%
@@ -22,6 +23,7 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
 \section{Memory Endpoint}
 
 \begin{register}{H}{Memory EP}{}
+  \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
   \regfieldb{size}{64}{0}\regnewline%
   \regfieldb{addr}{64}{0}\regnewline%
   \regfieldb[gray!20]{reserved}{27}{37}%
@@ -42,17 +44,18 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
 \section{Send Endpoint}
 
 \begin{register}{H}{Send EP}{}
+  \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
   \regfieldb{label}{64}{0}\regnewline%
   \regfieldb[gray!20]{reserved}{34}{30}%
   \regfieldb{tgt\_chip}{6}{24}%
   \regfieldb{tgt\_tile}{8}{16}%
   \regfieldb{tgt\_ep}{16}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{10}{54}%
-  \regfieldb{reply}{1}{53}%
-  \regfieldb{crd\_ep}{16}{37}%
-  \regfieldb{msg\_sz}{6}{31}%
-  \regfieldb{max\_crd}{6}{25}%
-  \regfieldb{cur\_crd}{6}{19}%
+  \regfieldb[gray!20]{reserved}{8}{56}%
+  \regfieldb{reply}{1}{55}%
+  \regfieldb{crd\_ep}{16}{39}%
+  \regfieldb{msg\_sz}{6}{33}%
+  \regfieldb{max\_crd}{7}{26}%
+  \regfieldb{cur\_crd}{7}{19}%
   \regfieldb[tilemux]{act}{16}{3}%
   \regfieldb{type}{3}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
@@ -71,14 +74,14 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
 \section{Receive Endpoint}
 
 \begin{register}{H}{Receive EP}{}
-  \regfieldb{unread}{32}{32}%
-  \regfieldb{occupied}{32}{0}\regnewline%
+  \regfieldb{unread}{64}{0}\regnewline%
+  \regfieldb{occupied}{64}{0}\regnewline%
   \regfieldb{buffer}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{5}{59}%
-  \regfieldb{rpos}{6}{53}%
-  \regfieldb{wpos}{6}{47}%
-  \regfieldb{slot\_size}{6}{41}%
-  \regfieldb{slots}{6}{35}%
+  \regfieldb[gray!20]{reserved}{2}{62}%
+  \regfieldb{rpos}{7}{55}%
+  \regfieldb{wpos}{7}{48}%
+  \regfieldb{slot\_size}{6}{42}%
+  \regfieldb{slots}{7}{35}%
   \regfieldb{rpl\_eps}{16}{19}%
   \regfieldb[tilemux]{act}{16}{3}%
   \regfieldb{type}{3}{0}\regnewline%

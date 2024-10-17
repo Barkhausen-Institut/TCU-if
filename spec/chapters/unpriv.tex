@@ -5,7 +5,7 @@ allows to use the TCU's endpoints via \emph{unprivileged commands}. The unprivil
 used to pass input arguments for a command to the TCU, start a command, and wait until the command
 is finished. The following unprivileged registers are used:
 
-\begin{register}{H}{COMMAND}{\texttt{0xF000\_0018}}
+\begin{register}{H}{COMMAND}{\texttt{0xF000\_0028}}
   \regfieldb[gray!20]{reserved}{7}{57}%
   \regfieldb{arg0}{32}{25}%
   \regfieldb{error}{5}{20}%
@@ -324,7 +324,11 @@ and stores messages. Nevertheless, its behavior is described by the following al
 
 Note that \texttt{DATA\_SIZE == 0} is allowed and sends only the message header to the receiver
 without payload. Like for \texttt{SEND}, note also the placement of \texttt{read\_local} and places
-where state is changed.
+where state is changed. Note also that replies that fail on the reply-receiving side cannot be
+repeated, because the reply EP will already be invalid. This is required to avoid a race: if the
+receive-buffer slot is free'd after giving the credits back, the sender could send another message
+before the slot is free. However, errors on the reply-receiving side can only be caused due to
+misconfiguration anyway (receive EP invalid, not enough space in receive buffer, etc.). 
 
 \begin{algorithm}
     $ep \gets$ read\_ep(COMMAND.ep)\;
@@ -357,6 +361,19 @@ where state is changed.
     $(payload, err) \gets read\_local(phys, DATA\_SIZE)$\;
     \extstart{tilemux}\uIf{err != 0}{unpriv\_stop(ABORT)}\extend{}
     \BlankLine
+    $nsep \gets \{~type \gets INVALID~\}$\;
+    $write\_ep(ep.rpl\_eps + idx, nsep)$\;
+    \BlankLine
+    \extstart{tilemux}
+    \uIf{ep.unread.is\_set(idx)}{
+      CUR\_ACT.msgs -= 1\;
+    }
+    \extend{}
+    \BlankLine
+    $ep.occupied.clear\_bit(idx)$\;
+    $ep.unread.clear\_bit(idx)$\;
+    $write\_ep(COMMAND.ep, ep)$\;
+    \BlankLine
     $header \gets$ \{ flags $\gets$ REPLY\;
     $\quad\quad\quad\quad\quad label \gets sep.label$\;
     $\quad\quad\quad\quad\quad length \gets DATA\_SIZE$\;
@@ -369,19 +386,6 @@ where state is changed.
     $send\_msg(header\ |\ payload, sep.tgt\_chip, sep.tgt\_tile, sep.tgt\_ep)$\;
     $err \gets wait\_for\_ack()$\;
     \uIf{err != 0}{unpriv\_stop(err)}
-    \BlankLine
-    $sep \gets \{~type \gets INVALID~\}$\;
-    $write\_ep(ep.rpl\_eps + idx, sep)$\;
-    \BlankLine
-    \extstart{tilemux}
-    \uIf{ep.unread.is\_set(idx)}{
-      CUR\_ACT.msgs -= 1\;
-    }
-    \extend{}
-    \BlankLine
-    $ep.occupied.clear\_bit(idx)$\;
-    $ep.unread.clear\_bit(idx)$\;
-    $write\_ep(COMMAND.ep, ep)$\;
     \BlankLine
     $COMMAND \gets 0$\;
     \caption{The TCU's \texttt{REPLY} command (continued).}

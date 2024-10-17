@@ -2,49 +2,20 @@
 from ipaddress import IPv4Address
 from time import sleep
 
-import noc
 import memory
-from tcu import TCUStatusReg, TCUExtReg, TileDesc
 import modids
 
 
 class EthernetRegfile(memory.Memory):
-    def __init__(self, tcu, nocif, nocid):
+    def __init__(self, tcu, mem, nocif):
         self.tcu = tcu
         self.nocif = nocif
         self.shortname = "eth_rf"
         self.name = "Ethernet Regfile"
-        self.rf = memory.Memory(nocif, nocid)
-        self.nocarq = noc.NoCARQRegfile(nocid)
+        self.rf = mem
 
-    def tcu_tile_desc(self):
-        tile_desc = self.rf[self.tcu.ext_reg_addr(TCUExtReg.TILE_DESC)]
-        return TileDesc(tile_desc)
-
-    def tcu_status(self):
-        status = self.rf[self.tcu.status_reg_addr(TCUStatusReg.STATUS)]
-        return (status & 0xFF, (status >> 8) & 0xFF, (status >> 16) & 0xFF)
-
-    def tcu_reset(self):
-        self.rf[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = 1
-
-    def tcu_ctrl_flit_count(self):
-        flits = self.rf[self.tcu.status_reg_addr(TCUStatusReg.CTRL_FLIT_COUNT)]
-        flits_rx = flits & 0xFFFFFFFF
-        flits_tx = flits >> 32
-        return (flits_tx, flits_rx)
-
-    def tcu_byp_flit_count(self):
-        flits = self.rf[self.tcu.status_reg_addr(TCUStatusReg.BYP_FLIT_COUNT)]
-        flits_rx = flits & 0xFFFFFFFF
-        flits_tx = flits >> 32
-        return (flits_tx, flits_rx)
-
-    def tcu_drop_flit_count(self):
-        return self.rf[self.tcu.status_reg_addr(TCUStatusReg.DROP_FLIT_COUNT)] & 0xFFFFFFFF
-
-    def tcu_error_flit_count(self):
-        return self.rf[self.tcu.status_reg_addr(TCUStatusReg.DROP_FLIT_COUNT)] >> 32
+    def __repr__(self):
+        return self.name
 
     def self_test(self):
         hostif = memory.Memory(self.nocif, (0x3F, modids.MODID_ETH))

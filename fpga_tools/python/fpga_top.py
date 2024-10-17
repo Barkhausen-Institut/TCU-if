@@ -4,7 +4,7 @@ import noc
 import router
 import ethernet
 import dram
-import pm
+import tile
 import uart
 import regfile
 from tcu import TCU
@@ -58,7 +58,9 @@ class FPGA_TOP(fpga):
 
         #NOC
         self.nocif = noc.NoCethernet(tcu, (self.fpga_ip_addr, self.FPGA_PORT), chipid, reset)
-        self.eth_rf = ethernet.EthernetRegfile(tcu, self.nocif, (chipid, modids.MODID_ETH))
+
+        #Ethernet tile
+        self.eth_rf = tile.Tile(tcu, self.nocif, (chipid, modids.MODID_ETH))
 
         #regfile
         #self.regfile = regfile.REGFILE(self.nocif, (chipid, modids.MODID_PM5))
@@ -68,16 +70,16 @@ class FPGA_TOP(fpga):
         self.router = [router.Router(self.nocif, (chipid, modids.MODID_ROUTER[x]), x) for x in range(self.router_count)]
 
         #DRAM
-        self.dram1 = dram.DRAM(tcu, self.nocif, (chipid, modids.MODID_DRAM1))
-        self.dram2 = dram.DRAM(tcu, self.nocif, (chipid, modids.MODID_DRAM2))
+        self.dram1 = tile.Tile(tcu, self.nocif, (chipid, modids.MODID_DRAM1))
+        self.dram2 = tile.Tile(tcu, self.nocif, (chipid, modids.MODID_DRAM2))
 
         #PMs
         self.pm_count = len(modids.MODID_PMS)
-        self.pms = [pm.PM(tcu, self.nocif, (chipid, modids.MODID_PMS[x]), x) for x in range(self.pm_count)]
+        self.pmTiles = [tile.Tile(tcu, self.nocif, (chipid, modids.MODID_PMS[x]), x) for x in range(self.pm_count)]
 
     def set_arq_enable(self, enabled):
         val = 1 if enabled else 0
-        for pm in self.pms:
+        for pm in self.pmTiles:
             pm.nocarq.set_arq_enable(val)
             if enabled:
                 pm.nocarq.set_arq_timeout(200)  # reduce timeout

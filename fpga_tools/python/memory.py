@@ -111,7 +111,7 @@ class Memory(object):
                         break
                 except:
                     continue
-            if i == 3:
+            if i == 2:
                 assert False, "Unable to write bytes to {:#x}; giving up after 3 attempts".format(addr)
             off += amount
 

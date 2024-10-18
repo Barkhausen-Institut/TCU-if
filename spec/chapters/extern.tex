@@ -119,6 +119,53 @@ endpoint). Note also that if the TCU caches external endpoints, the cache is inv
   \end{reglist}\end{regdesc}
 \end{register}
 
+\extstart{exregs}
+\section{Exclusive Regions}
+
+TCUs in memory tiles contain a certain number of \emph{exclusive-region register}s that restrict the
+access to certain memory regions to specific tiles. These registers come in pairs, each consisting
+of a configuration and a range:
+
+\begin{register}{H}{Exclusive-Region}{}
+  \regfieldb{range}{64}{0}\regnewline%
+  \regfieldb[gray!20]{reserved}{47}{17}%
+  \regfieldb{chip}{6}{11}%
+  \regfieldb{tile}{8}{3}%
+  \regfieldb{rw}{2}{1}%
+  \regfieldb{valid}{1}{0}\regnewline%
+  \begin{regdesc}\begin{reglist}
+    \item[range] the address range
+    \item[chip] the chip ID of the owning tile
+    \item[tile] the tile ID of the owning tile
+    \item[rw] the permissions (read = 1, write = 2)
+    \item[valid] whether this exclusive region will be considered during accesses
+  \end{reglist}\end{regdesc}
+\end{register}
+
+The address range is specified as a naturally aligned power-of-two region, inspired by the physical
+memory protection of RISC-V. That is, the 64-byte range specification is converted to an address and
+size as follows:
+
+\begin{algorithm}[h]
+    $trailingOnes \gets countTrailingOneBits(range)$\;
+    $addr \gets (range\ \& \sim((1 << trailingOnes) - 1)) << 2$\;
+    $size \gets 1 << (trailingOnes + 3)$\;
+    \caption{Conversion of a range specification to address and size.}
+\end{algorithm}
+
+Every memory request sent to the memory tile consults the list of exclusive region registers to
+check whether the access is allowed. Regions that have the valid bit cleared are ignored. If the
+memory request refers to a valid region and the requesting tile does not match the chip and tile ID
+of the region, the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise, if the
+memory request refers to a valid region and the permissions are insufficient, the request is aborted
+with error \texttt{EXREG\_NO\_PERM}.
+
+As their name suggests, each region is exclusive, implying that the TCU needs to ensure that there
+are never two valid regions that overlap. For that reason, the \texttt{SET\_EXCL} external command
+(see \rref{sec:setexcl} for details) fails if a region exists that overlaps with the to-be-installed
+one.
+\extend{}
+
 \section{External Commands}
 
 The TCU supports \emph{external commands}, which are triggered by writing to the \texttt{EXT\_CMD}
@@ -126,11 +173,11 @@ register and feedback is given via this register as well. The \texttt{EXT\_CMD} 
 following format:
 
 \begin{register}{H}{EXT\_CMD}{\texttt{0xF000\_0010}}
-  \regfieldb{arg}{55}{9}%
+  \regfieldb{arg0}{55}{9}%
   \regfieldb{err}{5}{4}%
   \regfieldb{op}{4}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
-    \item[arg] an argument for the operation
+    \item[arg0] first argument for the operation
     \item[err] the result of the operation (output field)
     \item[op] the operation to execute
   \end{reglist}\end{regdesc}
@@ -141,7 +188,10 @@ to an \texttt{UNKNOWN\_CMD} error.
 
 \begin{itemize}
   \item \texttt{IDLE} (0): don't do anything,
-  \item \texttt{INV\_EP} (1): invalidate an endpoint.
+  \item \texttt{INV\_EP} (1): invalidate an endpoint,
+  \item \emph{reserved} (2)
+  \item \texttt{SET\_EXCL} (3): set region as exclusive, \extstart{exregs}
+  \item \texttt{INV\_EXCL} (4): invalidate exlusive region. \extend{}
 \end{itemize}
 
 \section{Pseudo Code Building Blocks}
@@ -151,6 +201,13 @@ The following sections use pseudo code to describe the behavior of the external 
 on the following building blocks:
 
 \begin{itemize}
+  \item \texttt{exreg\_read(idx)}: \extstart{exregs}\\
+  loads the exclusive region (config+range pair) with given index.
+  \item \texttt{exreg\_write(idx, er)}:\\
+  stores the given exclusive region (config+range pair) to given index.
+  \item \texttt{exreg\_by\_range(range) -> ExclReg}:\\
+  loads and returns the exclusive region (pair of config and range) that overlaps with given range
+        or returns null. \extend{}
   \item \texttt{ext\_stop(error)}:\\
   stop the execution of the external command by setting the opcode in \texttt{EXT\_CMD.op} to 0 and
   \texttt{EXT\_CMD.err} to the given error.
@@ -161,17 +218,17 @@ on the following building blocks:
 \subsection{\texttt{INV\_EP}}
 
 \begin{algorithm}[H]
-    $epid \gets EXT\_CMD.arg\ \&\ 0xFFFF$\;
-    $force \gets EXT\_CMD.arg >> 16$\;
+    $epid \gets EXT\_CMD.arg0\ \&\ 0xFFFF$\;
+    $force \gets EXT\_CMD.arg0 >> 16$\;
     \BlankLine
-    $EXT\_CMD.arg \gets 0$\;
+    $EXT\_CMD.arg0 \gets 0$\;
     \BlankLine
     $ep \gets$ read\_ep(epid)\;
     \uIf{force == 0 and ep.type == SEND}{
       \uIf{ep.cur\_crd != ep.max\_crd}{ext\_stop(NO\_CREDITS)}
     }
     \uIf{force == 0 and ep.type == RECEIVE}{
-      $EXT\_CMD.arg \gets ep.unread$\;
+      $EXT\_CMD.arg0 \gets ep.unread$\;
     }
     \BlankLine
     $ep \gets \{~type \gets INVALID~\}$\;
@@ -181,3 +238,44 @@ on the following building blocks:
     $EXT\_CMD.op \gets 0$\;
     \caption{The TCU's \texttt{INV\_EP} command.}
 \end{algorithm}
+
+\extstart{exregs}
+\subsection{\texttt{SET\_EXCL}}
+\label{sec:setexcl}
+
+\begin{algorithm}[H]
+    $idx \gets EXT\_CMD.arg0 >> 17$\;
+    $cfg \gets EXT\_CMD.arg0\ \&\ 0x1FFFF$\;
+    $range \gets EXT\_ARG1$\;
+    \BlankLine
+    \uIf{idx >= 16}{ext\_stop(OUT\_OF\_BOUNDS)}
+    \BlankLine
+    $er \gets exreg\_read(idx)$\;
+    \uIf{er.cfg.valid}{ext\_stop(EXREG\_EXISTS)}
+    \uIf{exreg\_by\_range(range) is not null}{ext\_stop(EXREG\_OVERLAPS)}
+    \BlankLine
+    $er.cfg = cfg$\;
+    $er.cfg.valid = 1$\;
+    $er.range = range$\;
+    $exreg\_write(idx, er)$\;
+    \BlankLine
+    $EXT\_CMD.err \gets NONE$\;
+    $EXT\_CMD.op \gets 0$\;
+    \caption{The TCU's \texttt{SET\_EXCL} command.}
+\end{algorithm}
+
+\subsection{\texttt{INV\_EXCL}}
+
+\begin{algorithm}[H]
+    $idx \gets EXT\_CMD.arg0$\;
+    \BlankLine
+    \uIf{idx >= 16}{ext\_stop(OUT\_OF\_BOUNDS)}
+    \BlankLine
+    $er \gets \{~cfg.valid \gets 0~\}$\;
+    $exreg\_write(idx, er)$\;
+    \BlankLine
+    $EXT\_CMD.err \gets NONE$\;
+    $EXT\_CMD.op \gets 0$\;
+    \caption{The TCU's \texttt{INV\_EXCL} command.}
+\end{algorithm}
+\extend{}

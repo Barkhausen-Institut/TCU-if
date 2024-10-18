@@ -75,7 +75,8 @@ complex core with caches and virtual memory support and a privileged software (P
 multiple applications on the same tile and/or virtual memory. These features require TCU extensions
 for virtual memory (\extbox{vm}) and/or tile sharing (\extbox{tilemux}). This specification highlights
 the portions that are required by only one extension in its color and portions that are required by
-either extension as \extbox{vmtilex}.
+either extension as \extbox{vmtilex}. Furthermore, exclusive-region register are only present in
+memory tiles and are thus highlighted as \extbox{exregs}.
 
 \section{Tile Internals}
 
@@ -86,21 +87,22 @@ either extension as \extbox{vmtilex}.
       regtbl/.style={draw=black,fill=gray!30,minimum width=3cm}
     ]
 
-    \node[draw=black,minimum width=7cm,minimum height=8.4cm,anchor=north west] (tcu) at(4,0) {};
+    \node[draw=black,minimum width=10.45cm,minimum height=8.9cm,anchor=north west] (tcu) at(4,0) {};
     \node[draw=black,minimum width=3.4cm,minimum height=3.2cm,anchor=north west] (cu) at (0,0) {CU};
     \node[draw=black,minimum width=3.4cm,minimum height=3.2cm,anchor=south west] (mem) at (0,-7) {SPM/Cache};
 
     \node[below right=.1cm and .1cm of tcu.north west] {TCU};
 
     \node[
-      regtbl,below right=.8cm and .2cm of tcu.north west,minimum height=3.6cm
+      regtbl,below right=.8cm and .2cm of tcu.north west,minimum height=4.1cm
     ] (tcuregs) {};
     \node[below=.1cm of tcuregs.north] {ExtRegs};
     \node[tcureg,below=.7cm of tcuregs.north] (extreg0) {\texttt{FEATURES}};
     \node[tcureg,below=0cm of extreg0]        (extreg1) {\texttt{TILE\_DESC}};
     \node[tcureg,below=0cm of extreg1]        (extreg2) {\texttt{EXT\_CMD}};
-    \node[tcureg,below=0cm of extreg2]        (extreg3) {\texttt{EPS\_ADDR}};
-    \node[tcureg,below=0cm of extreg3]        (extreg4) {\texttt{EPS\_SIZE}};
+    \node[tcureg,below=0cm of extreg2]        (extreg3) {\texttt{EXT\_ARG1}};
+    \node[tcureg,below=0cm of extreg3]        (extreg4) {\texttt{EPS\_ADDR}};
+    \node[tcureg,below=0cm of extreg4]        (extreg5) {\texttt{EPS\_SIZE}};
 
     \node[
       regtbl,below=.2cm of tcuregs.south,minimum height=3.6cm
@@ -113,19 +115,38 @@ either extension as \extbox{vmtilex}.
     \node[tcureg,below=0cm of cmdreg3]        (cmdreg4) {\texttt{CUR\_TIME}};
 
     \node[
-      regtbl,below left=1cm and .4cm of tcu.north east,minimum height=3.2cm
+      regtbl,above right=0cm and .4cm of tcuregs.north east,
+      minimum height=3.2cm,anchor=north west
+    ] (epregs0) {};
+    \node[
+      regtbl,above right=-.1cm and .5cm of tcuregs.north east,
+      minimum height=3.2cm,anchor=north west
     ] {};
     \node[
-      regtbl,below left=.9cm and .3cm of tcu.north east,minimum height=3.2cm
-    ] {};
-    \node[
-      regtbl,below left=.8cm and .2cm of tcu.north east,minimum height=3.2cm
+      regtbl,above right=-.2cm and .6cm of tcuregs.north east,
+      minimum height=3.2cm,anchor=north west
     ] (epregs) {};
     \node[below=.1cm of epregs.north] {EpRegs};
     \node[tcureg,below=.7cm of epregs.north] (epreg0) {\texttt{EP$_0$}};
     \node[tcureg,below=0cm of epreg0]        (epreg1) {\texttt{EP$_1$}};
     \node[tcureg,below=0cm of epreg1]        (epreg2) {\texttt{EP$_2$}};
     \node[tcureg,below=0cm of epreg2]        (epreg3) {\texttt{EP$_3$}};
+
+    \node[
+      regtbl,fill=exregs,above right=0cm and .4cm of epregs0.north east,
+      minimum height=2.1cm,anchor=north west
+    ] {};
+    \node[
+      regtbl,fill=exregs,above right=-.1cm and .5cm of epregs0.north east,
+      minimum height=2.1cm,anchor=north west
+    ] {};
+    \node[
+      regtbl,fill=exregs,above right=-.2cm and .6cm of epregs0.north east,
+      minimum height=2.1cm,anchor=north west
+    ] (exregs) {};
+    \node[below=.1cm of exregs.north] {ExRegRegs};
+    \node[tcureg,below=.7cm of exregs.north] (exreg0) {\texttt{ER$_0$}};
+    \node[tcureg,below=0cm of exreg0]        (exreg1) {\texttt{ER$_1$}};
 
     \node[
       regtbl,fill=vmtilex,below right=0cm and .38cm of cmdregs.north east,minimum height=3.6cm
@@ -170,13 +191,16 @@ that are multiplexed among multiple activities and/or use virtual memory. The pr
 make sure that unprivileged software running on the same tile cannot access the privileged registers.
 \extend{}
 
+\extstart{exregs} The \emph{exclusive-region registers} are only present in memory tiles and allow
+to make specific regions of memory only accessible by a specific tile.
+\extend{}
+
 \section{Registers}
 
 The TCU has several registers that are accessible through memory-mapped input/output~(MMIO). The
 memory interface from CU to TCU is expected to be 64-bit wide. The MMIO region of the TCU is defined
 as follows:
 
-\vspace{2ex}
 \noindent
 \begin{tabular}{ p{3cm} | c | c | l }
   \textbf{Address} & \textbf{Register} & \textbf{Group} & \textbf{Description} \\
@@ -185,22 +209,35 @@ as follows:
   \texttt{0xF000\_0000} & \texttt{FEATURES} & ExtRegs & Contains feature flags \\
   \texttt{0xF000\_0008} & \texttt{TILE\_DESC} & ExtRegs & Contains the tile description \\
   \texttt{0xF000\_0010} & \texttt{EXT\_CMD} & ExtRegs & Triggers external commands \\
-  \texttt{0xF000\_0018} & \texttt{EPS\_ADDR} & ExtRegs & Address of endpoints region \\
-  \texttt{0xF000\_0020} & \texttt{EPS\_SIZE} & ExtRegs & Size of endpoints region \\
+  \texttt{0xF000\_0018} & \texttt{EXT\_ARG1} & ExtRegs & Extra argument for external commands \\
+  \texttt{0xF000\_0020} & \texttt{EPS\_ADDR} & ExtRegs & Address of endpoints region \\
+  \texttt{0xF000\_0028} & \texttt{EPS\_SIZE} & ExtRegs & Size of endpoints region \\
   \hline
   \hline
-  \texttt{0xF000\_0028} & \texttt{COMMAND} & UnprivRegs & Triggers unprivileged commands \\
-  \texttt{0xF000\_0030} & \texttt{DATA\_ADDR} & UnprivRegs & Specifies the data address for commands \\
-  \texttt{0xF000\_0038} & \texttt{DATA\_SIZE} & UnprivRegs & Specifies the data size for commands \\
-  \texttt{0xF000\_0040} & \texttt{ARG$_1$} & UnprivRegs & Additional argument for commands \\
-  \texttt{0xF000\_0048} & \texttt{CUR\_TIME} & UnprivRegs & Yields the current time in nanoseconds \\
-  \texttt{0xF000\_0050} & \texttt{PRINT} & UnprivRegs & Triggers a debug print \\
+  \texttt{0xF000\_0030} & \texttt{COMMAND} & UnprivRegs & Triggers unprivileged commands \\
+  \texttt{0xF000\_0038} & \texttt{DATA\_ADDR} & UnprivRegs & Specifies the data address for commands \\
+  \texttt{0xF000\_0040} & \texttt{DATA\_SIZE} & UnprivRegs & Specifies the data size for commands \\
+  \texttt{0xF000\_0048} & \texttt{ARG$_1$} & UnprivRegs & Additional argument for commands \\
+  \texttt{0xF000\_0050} & \texttt{CUR\_TIME} & UnprivRegs & Yields the current time in nanoseconds \\
+  \texttt{0xF000\_0058} & \texttt{PRINT} & UnprivRegs & Triggers a debug print \\
   \hline
   \hline
-  \texttt{0xF000\_0058} & \texttt{PR0} & PrintRegs & First print register \\
-  \texttt{0xF000\_0060} & \texttt{PR1} & PrintRegs & Second print register \\
+  \texttt{0xF000\_0060} & \texttt{PR0} & PrintRegs & First print register \\
+  \texttt{0xF000\_0068} & \texttt{PR1} & PrintRegs & Second print register \\
   \multicolumn{4}{c}{\dots} \\
-  \texttt{0xF000\_0150} & \texttt{PR31} & PrintRegs & Thirty-second print register \\
+  \texttt{0xF000\_0158} & \texttt{PR31} & PrintRegs & Thirty-second print register \\
+  \hline
+  \hline
+  \texttt{0xF000\_0160} & \texttt{ER0$_0$} & ExRegRegs & First register of \texttt{ER0} (config) \extstart{exregs} \\
+  \texttt{0xF000\_0168} & \texttt{ER0$_1$} & ExRegRegs & Second register of \texttt{ER0} (range) \\
+  \hline
+  \texttt{0xF000\_0170} & \texttt{ER1$_0$} & ExRegRegs & First register of \texttt{ER1} (config) \\
+  \texttt{0xF000\_0178} & \texttt{ER1$_1$} & ExRegRegs & Second register of \texttt{ER1} (range) \\
+  \hline
+  \multicolumn{4}{c}{\dots} \\
+  \hline
+  \texttt{0xF000\_0250} & \texttt{ER15$_0$} & ExRegRegs & First register of \texttt{ER15} (config) \\
+  \texttt{0xF000\_0258} & \texttt{ER15$_1$} & ExRegRegs & Second register of \texttt{ER15} (range) \extend{} \\
   \hline
   \hline
   \texttt{0xF000\_1000} & \texttt{CU\_REQ} & PrivRegs & TCU-CU interactions \extstart{vmtilex} \\
@@ -210,25 +247,25 @@ as follows:
   \texttt{0xF000\_1020} & \texttt{CUR\_ACT} & PrivRegs & Currently running activity \extstart{tilemux} \extend{} \\
   \hline
   \hline
-  \texttt{0xF000\_2000} & \texttt{EP0$_0$} & EpRegs & First register of EP0 \\
-  \texttt{0xF000\_2008} & \texttt{EP0$_1$} & EpRegs & Second register of EP0 \\
-  \texttt{0xF000\_2010} & \texttt{EP0$_2$} & EpRegs & Third register of EP0 \\
-  \texttt{0xF000\_2018} & \texttt{EP0$_3$} & EpRegs & Fourth register of EP0 \\
+  \texttt{0xF000\_2000} & \texttt{EP0$_0$} & EpRegs & First register of \texttt{EP0} \\
+  \texttt{0xF000\_2008} & \texttt{EP0$_1$} & EpRegs & Second register of \texttt{EP0} \\
+  \texttt{0xF000\_2010} & \texttt{EP0$_2$} & EpRegs & Third register of \texttt{EP0} \\
+  \texttt{0xF000\_2018} & \texttt{EP0$_3$} & EpRegs & Fourth register of \texttt{EP0} \\
   \hline
-  \texttt{0xF000\_2020} & \texttt{EP1$_0$} & EpRegs & First register of EP1 \\
-  \texttt{0xF000\_2028} & \texttt{EP1$_1$} & EpRegs & Second register of EP1 \\
-  \texttt{0xF000\_2030} & \texttt{EP1$_2$} & EpRegs & Third register of EP1 \\
-  \texttt{0xF000\_2038} & \texttt{EP1$_3$} & EpRegs & Fourth register of EP1 \\
+  \texttt{0xF000\_2020} & \texttt{EP1$_0$} & EpRegs & First register of \texttt{EP1} \\
+  \texttt{0xF000\_2028} & \texttt{EP1$_1$} & EpRegs & Second register of \texttt{EP1} \\
+  \texttt{0xF000\_2030} & \texttt{EP1$_2$} & EpRegs & Third register of \texttt{EP1} \\
+  \texttt{0xF000\_2038} & \texttt{EP1$_3$} & EpRegs & Fourth register of \texttt{EP1} \\
   \hline
   \multicolumn{4}{c}{\dots} \\
   \hline
-  \texttt{0xF020\_1FE0} & \texttt{EP65535$_0$} & EpRegs & First register of EP65535 \\
-  \texttt{0xF020\_1FE8} & \texttt{EP65535$_1$} & EpRegs & Second register of EP65535 \\
-  \texttt{0xF020\_1FF0} & \texttt{EP65535$_2$} & EpRegs & Third register of EP65535 \\
-  \texttt{0xF020\_1FF8} & \texttt{EP65535$_3$} & EpRegs & Fourth register of EP65535 \\
+  \texttt{0xF020\_1FE0} & \texttt{EP65535$_0$} & EpRegs & First register of \texttt{EP65535} \\
+  \texttt{0xF020\_1FE8} & \texttt{EP65535$_1$} & EpRegs & Second register of \texttt{EP65535} \\
+  \texttt{0xF020\_1FF0} & \texttt{EP65535$_2$} & EpRegs & Third register of \texttt{EP65535} \\
+  \texttt{0xF020\_1FF8} & \texttt{EP65535$_3$} & EpRegs & Fourth register of \texttt{EP65535} \\
   \hline
   \hline
-\end{tabular}\\[1em]
+\end{tabular}
 
 \section{Error List}
 
@@ -260,7 +297,11 @@ The TCU uses the following error codes to provide feedback to the software for f
   \item \texttt{PAGE\_BOUNDARY} (22): data to transfer contains a page boundary,
   \item \texttt{MSG\_UNALIGNED} (23): message to send is not 16-byte aligned,
   \item \texttt{TLB\_MISS} (24): entry in TLB not found,
-  \item \texttt{TLB\_FULL} (25): TLB contains only fixed entries.
+  \item \texttt{TLB\_FULL} (25): TLB contains only fixed entries,
   \item \texttt{NO\_PMP\_EP} (26): no PMP endpoint,
   \item \texttt{NO\_IRQ} (27): no pending IRQ,
+  \item \texttt{EXREG\_NO\_PERM} (28): No read/write permission for exclusive region,
+  \item \texttt{EXREG\_WRONG\_TILE} (29): Tile has no access to exclusive region,
+  \item \texttt{EXREG\_OVERLAPS} (30): Exclusive region overlaps with another region,
+  \item \texttt{EXREG\_EXISTS} (31): Exclusive region already exists.
 \end{itemize}

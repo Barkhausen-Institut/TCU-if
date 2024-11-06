@@ -15,6 +15,7 @@ through the \texttt{FEATURES} register, which has the following format:
   \regfield{vminor}{8}{48}{?}%
   \regfield{vmajor}{16}{32}{?}%
   \regfield[gray!20]{reserved}{29}{3}{{uninitialized}}%
+  \regfield{locked}{1}{3}{0}%
   \regfield{ctxsw}{1}{2}{0}%
   \regfield{vm}{1}{1}{0}%
   \regfield{kernel}{1}{0}{1}%
@@ -23,6 +24,7 @@ through the \texttt{FEATURES} register, which has the following format:
     \item[vmajor] the TCU major version number
     \item[vminor] the TCU minor version number
     \item[vpatch] the TCU patch version number
+    \item[locked] whether the TCU has been locked
     \item[ctxsw] whether the context-switching extension is available
     \item[vm] whether the virtual-memory extension is available
     \item[kernel] whether the TCU belongs to a kernel tile
@@ -41,6 +43,11 @@ virtual-memory extension is enabled, respectively. If the former is disabled, fo
 receptions do not raise a CU request. If the latter is disabled, no address translation is
 performed and thus no translation CU request is raised. The behavior of privileged commands is
 undefined if the associated extension is disabled.
+
+The bit \texttt{FEATURES.locked} controls whether the TCU is locked. If the bit is set, incoming
+memory requests (read/write) are answered with the \texttt{TCU\_LOCKED} error. The locked bit can
+only be switched from 0 to 1, but not from 1 to 0. However, the locked bit will be reset to 0 on a
+tile reset.
 
 The TCU uses semantic versioning\footnote{\url{https://semver.org}} to keep track of changes. Thus,
 incompatible changes result in a new major version, compatible changes result in a new minor

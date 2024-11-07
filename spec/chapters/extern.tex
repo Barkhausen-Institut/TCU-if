@@ -14,7 +14,8 @@ through the \texttt{FEATURES} register, which has the following format:
   \regfield{vpatch}{8}{56}{?}%
   \regfield{vminor}{8}{48}{?}%
   \regfield{vmajor}{16}{32}{?}%
-  \regfield[gray!20]{reserved}{29}{3}{{uninitialized}}%
+  \regfield[gray!20]{reserved}{12}{20}{{uninitialized}}%
+  \regfield{gen}{16}{4}{0}%
   \regfield{locked}{1}{3}{0}%
   \regfield{ctxsw}{1}{2}{0}%
   \regfield{vm}{1}{1}{0}%
@@ -24,6 +25,7 @@ through the \texttt{FEATURES} register, which has the following format:
     \item[vmajor] the TCU major version number
     \item[vminor] the TCU minor version number
     \item[vpatch] the TCU patch version number
+    \item[gen] the tile generation
     \item[locked] whether the TCU has been locked
     \item[ctxsw] whether the context-switching extension is available
     \item[vm] whether the virtual-memory extension is available
@@ -48,6 +50,10 @@ The bit \texttt{FEATURES.locked} controls whether the TCU is locked. If the bit 
 memory requests (read/write) are answered with the \texttt{TCU\_LOCKED} error. The locked bit can
 only be switched from 0 to 1, but not from 1 to 0. However, the locked bit will be reset to 0 on a
 tile reset.
+
+The bits \texttt{FEATURES.gen} hold the current tile generation. It's initial value is 0 and it's
+increased on every reset by 1. The field is read-only for software. If the maximum value
+(\texttt{0xFFFF}) is reached, starting the tile will fail.
 
 The TCU uses semantic versioning\footnote{\url{https://semver.org}} to keep track of changes. Thus,
 incompatible changes result in a new major version, compatible changes result in a new minor
@@ -136,12 +142,14 @@ of a configuration and a range:
 \begin{register}{H}{Exclusive-Region}{}
   \regfieldb{range}{64}{0}\regnewline%
   \regfieldb[gray!20]{reserved}{47}{17}%
+  \regfieldb{gen}{16}{17}%
   \regfieldb{chip}{6}{11}%
   \regfieldb{tile}{8}{3}%
   \regfieldb{rw}{2}{1}%
   \regfieldb{valid}{1}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
     \item[range] the address range
+    \item[gen] the generation of the owning tile
     \item[chip] the chip ID of the owning tile
     \item[tile] the tile ID of the owning tile
     \item[rw] the permissions (read = 1, write = 2)
@@ -162,10 +170,10 @@ size as follows:
 
 Every memory request sent to the memory tile consults the list of exclusive region registers to
 check whether the access is allowed. Regions that have the valid bit cleared are ignored. If the
-memory request refers to a valid region and the requesting tile does not match the chip and tile ID
-of the region, the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise, if the
-memory request refers to a valid region and the permissions are insufficient, the request is aborted
-with error \texttt{EXREG\_NO\_PERM}.
+memory request refers to a valid region and the requesting tile does not match the chip, tile, and
+generation of the region, the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise,
+if the memory request refers to a valid region and the permissions are insufficient, the request is
+aborted with error \texttt{EXREG\_NO\_PERM}.
 
 As their name suggests, each region is exclusive, implying that the TCU needs to ensure that there
 are never two valid regions that overlap. For that reason, the \texttt{SET\_EXCL} external command
@@ -251,8 +259,8 @@ on the following building blocks:
 \label{sec:setexcl}
 
 \begin{algorithm}[H]
-    $idx \gets EXT\_CMD.arg0 >> 17$\;
-    $cfg \gets EXT\_CMD.arg0\ \&\ 0x1FFFF$\;
+    $idx \gets EXT\_CMD.arg0 >> 33$\;
+    $cfg \gets EXT\_CMD.arg0\ \&\ 0x1\_FFFF\_FFFF$\;
     $range \gets EXT\_ARG1$\;
     \BlankLine
     \uIf{idx >= 16}{ext\_stop(OUT\_OF\_BOUNDS)}

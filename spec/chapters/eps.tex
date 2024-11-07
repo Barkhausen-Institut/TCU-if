@@ -26,7 +26,8 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
   \regfieldb{size}{64}{0}\regnewline%
   \regfieldb{addr}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{27}{37}%
+  \regfieldb[gray!20]{reserved}{11}{53}%
+  \regfieldb{gen}{16}{37}%
   \regfieldb{chip}{6}{31}%
   \regfieldb{tile}{8}{23}%
   \regfieldb{rw}{4}{19}%
@@ -35,6 +36,7 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \begin{regdesc}\begin{reglist}
     \item[size] the size of the region at the destination
     \item[addr] the base address of the region at the destination
+    \item[gen] the destination generation
     \item[chip] the destination chip ID
     \item[tile] the destination tile ID
     \item[rw] the permission bits (read = 1, write = 2)
@@ -46,7 +48,8 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
 \begin{register}{H}{Send EP}{}
   \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
   \regfieldb{label}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{34}{30}%
+  \regfieldb[gray!20]{reserved}{18}{46}%
+  \regfieldb{tgt\_gen}{16}{30}%
   \regfieldb{tgt\_chip}{6}{24}%
   \regfieldb{tgt\_tile}{8}{16}%
   \regfieldb{tgt\_ep}{16}{0}\regnewline%
@@ -60,6 +63,7 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb{type}{3}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
     \item[label] the label the TCU puts into the header of each sent message
+    \item[tgt\_gen] the generation of the target tile
     \item[tgt\_chip] the ID of the target chip
     \item[tgt\_tile] the ID of the target tile
     \item[tgt\_ep] the ID of the receive EP at the target tile

@@ -161,7 +161,9 @@ given by the application. The TCU stores both header and payload into the receiv
 The header is defined as:
 
 \begin{register}{H}{Message Header}{}
-  \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
+  \regfieldb[gray!20]{reserved}{32}{32}%
+  \regfieldb{rgen}{16}{16}%
+  \regfieldb{sgen}{16}{0}\regnewline%
   \regfieldb{label}{64}{0}\regnewline%
   \regfieldb{rlabel}{64}{0}\regnewline%
   \regfieldb{rep}{16}{48}%
@@ -177,6 +179,8 @@ The header is defined as:
     \item[rep] the receive endpoint ID for the reply at the sender side
     \item[sep] the sender endpoint ID
     \item[length] the payload size in bytes
+    \item[rgen] the expected receiver tile generation
+    \item[sgen] the sender tile generation
     \item[schip] the sender chip ID
     \item[stile] the sender tile ID
     \item[rsize] the size of the reply message as a power of 2
@@ -270,6 +274,8 @@ Note that \texttt{RECEIVE} is not a command, but just the logic at the receiver 
 and stores messages. Nevertheless, its behavior is described by the following algorithm:
 
 \begin{algorithm}[H]
+    \uIf{header.rgen != FEATURES.gen}{send\_ack(WRONG\_GEN) and drop message}
+    \BlankLine
     $ep \gets$ read\_ep(rep)\;
     \uIf{ep.type != RECEIVE}{send\_ack(RECV\_GONE) and drop message}
     \uIf{$sizeof(header) + header.length > (1 << ep.slot\_size)$}{send\_ack(RECV\_OUT\_OF\_BOUNDS) and drop message}
@@ -291,6 +297,7 @@ and stores messages. Nevertheless, its behavior is described by the following al
       $\quad\quad\quad\ \ \  act \gets ep.act$\;
       \extend{}
       $\quad\quad\quad\ \ \  reply \gets 1$\;
+      $\quad\quad\quad\ \ \  tgt\_gen \gets header.sgen$\;
       $\quad\quad\quad\ \ \  tgt\_chip \gets header.schip$\;
       $\quad\quad\quad\ \ \  tgt\_tile \gets header.stile$\;
       $\quad\quad\quad\ \ \  tgt\_ep \gets header.rep$\;

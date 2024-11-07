@@ -204,7 +204,7 @@ to an \texttt{UNKNOWN\_CMD} error.
 \begin{itemize}
   \item \texttt{IDLE} (0): don't do anything,
   \item \texttt{INV\_EP} (1): invalidate an endpoint,
-  \item \emph{reserved} (2)
+  \item \texttt{RESET} (2): reset the tile,
   \item \texttt{SET\_EXCL} (3): set region as exclusive, \extstart{exregs}
   \item \texttt{INV\_EXCL} (4): invalidate exlusive region. \extend{}
 \end{itemize}
@@ -226,6 +226,14 @@ on the following building blocks:
   \item \texttt{ext\_stop(error)}:\\
   stop the execution of the external command by setting the opcode in \texttt{EXT\_CMD.op} to 0 and
   \texttt{EXT\_CMD.err} to the given error.
+  \item \texttt{clear\_tlb()}:\\
+  invalidates all entries in the TCU-internal TLB.
+  \item \texttt{start\_core()}:\\
+  starts the core (at the reset vector).
+  \item \texttt{stop\_core()}:\\
+  stops the core.
+  \item \texttt{reset\_priv\_unpriv()}:\\
+  resets all privileged and unprivileged registers to their reset state.
 \end{itemize}
 
 \section{Command Description}
@@ -252,6 +260,29 @@ on the following building blocks:
     $EXT\_CMD.err \gets NONE$\;
     $EXT\_CMD.op \gets 0$\;
     \caption{The TCU's \texttt{INV\_EP} command.}
+\end{algorithm}
+
+\subsection{\texttt{RESET}}
+
+\begin{algorithm}[H]
+    $start \gets EXT\_CMD.arg0\ == 1$\;
+    \BlankLine
+    clear\_tlb()\;
+    \uIf{start}{
+        \uIf{FEATURES.gen == 0xFFFF}{ext\_stop(WRONG\_GEN)}
+        \BlankLine
+        start\_core()\;
+    }
+    \uElse {
+        stop\_core()\;
+        FEATURES.gen += 1\;
+        FEATURES.locked = 0\;
+        reset\_priv\_unpriv()\;
+    }
+    \BlankLine
+    $EXT\_CMD.err \gets NONE$\;
+    $EXT\_CMD.op \gets 0$\;
+    \caption{The TCU's \texttt{RESET} command.}
 \end{algorithm}
 
 \extstart{exregs}

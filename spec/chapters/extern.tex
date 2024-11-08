@@ -179,6 +179,11 @@ As their name suggests, each region is exclusive, implying that the TCU needs to
 are never two valid regions that overlap. For that reason, the \texttt{SET\_EXCL} external command
 (see \rref{sec:setexcl} for details) fails if a region exists that overlaps with the to-be-installed
 one.
+
+To prevent that the kernel can use a combination of \texttt{INV\_EXCL} and \texttt{SET\_EXCL} to
+change an exclusive region, \texttt{INV\_EXCL} is not allowed unless the generation of the owning
+tile has been advanced. In other words, the owning tile needs to be reset first before its exclusive
+regions can be invalidated.
 \extend{}
 
 \section{External Commands}
@@ -234,6 +239,8 @@ on the following building blocks:
   stops the core.
   \item \texttt{reset\_priv\_unpriv()}:\\
   resets all privileged and unprivileged registers to their reset state.
+  \item \texttt{request\_gen(chip, tile) -> gen}:\\
+  requests the current generation from the given tile and returns it
 \end{itemize}
 
 \section{Command Description}
@@ -317,8 +324,13 @@ on the following building blocks:
     \BlankLine
     \uIf{idx >= 16}{ext\_stop(OUT\_OF\_BOUNDS)}
     \BlankLine
-    $er \gets \{~cfg.valid \gets 0~\}$\;
-    $exreg\_write(idx, er)$\;
+    $er \gets exreg\_read(idx)$\;
+    \uIf{er.cfg.valid}{
+        \uIf{request\_gen(er.cfg.chip, er.cfg.tile) == er.cfg.gen}{ext\_stop(WRONG\_GEN)}
+        \BlankLine
+        $er.cfg.valid \gets 0$\;
+        $exreg\_write(idx, er)$\;
+    }
     \BlankLine
     $EXT\_CMD.err \gets NONE$\;
     $EXT\_CMD.op \gets 0$\;

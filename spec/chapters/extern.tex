@@ -246,6 +246,7 @@ on the following building blocks:
 \section{Command Description}
 
 \subsection{\texttt{INV\_EP}}
+\label{sec:epinval}
 
 \begin{algorithm}[H]
     $epid \gets EXT\_CMD.arg0\ \&\ 0xFFFF$\;
@@ -254,6 +255,7 @@ on the following building blocks:
     $EXT\_CMD.arg0 \gets 0$\;
     \BlankLine
     $ep \gets$ read\_ep(epid)\;
+    \uIf{ep.frozen == 1}{ext\_stop(EP\_FROZEN)}
     \uIf{force == 0 and ep.type == SEND}{
       \uIf{ep.cur\_crd != ep.max\_crd}{ext\_stop(NO\_CREDITS)}
     }

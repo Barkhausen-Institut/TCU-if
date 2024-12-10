@@ -11,14 +11,21 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{64}{0}\regnewline%
-  \regfieldb[gray!60]{}{45}{19}%
+  \regfieldb{frozen}{1}{63}%
+  \regfieldb[gray!60]{}{44}{19}%
   \regfieldb[tilemux]{act}{16}{3}%
   \regfieldb{type}{3}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
+    \item[frozen] indicates whether the endpoint is frozen, i.e., cannot be changed
     \item[act] \extstart{tilemux} the id of the activity that can use this endpoint \extend{}
     \item[type] the endpoint type: INVALID (0), SEND (1), RECEIVE (2), or MEMORY (3)
   \end{reglist}\end{regdesc}
 \end{register}
+
+The frozen bit is set by the TCU for an endpoint if any of the endpoint registers changed and
+\textttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers has no
+effect (and invalidation is denied, see \autoref{sec:epinval}). Furthermore, frozen endpoints are
+implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
 
 \section{Memory Endpoint}
 
@@ -26,7 +33,8 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb[gray!20]{reserved}{64}{0}\regnewline%
   \regfieldb{size}{64}{0}\regnewline%
   \regfieldb{addr}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{11}{53}%
+  \regfieldb{frozen}{1}{63}%
+  \regfieldb[gray!20]{reserved}{10}{53}%
   \regfieldb{gen}{16}{37}%
   \regfieldb{chip}{6}{31}%
   \regfieldb{tile}{8}{23}%
@@ -53,7 +61,8 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb{tgt\_chip}{6}{24}%
   \regfieldb{tgt\_tile}{8}{16}%
   \regfieldb{tgt\_ep}{16}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{8}{56}%
+  \regfieldb{frozen}{1}{63}%
+  \regfieldb[gray!20]{reserved}{7}{56}%
   \regfieldb{reply}{1}{55}%
   \regfieldb{crd\_ep}{16}{39}%
   \regfieldb{msg\_sz}{6}{33}%
@@ -81,7 +90,8 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb{unread}{64}{0}\regnewline%
   \regfieldb{occupied}{64}{0}\regnewline%
   \regfieldb{buffer}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{2}{62}%
+  \regfieldb{frozen}{1}{63}%
+  \regfieldb[gray!20]{reserved}{1}{62}%
   \regfieldb{rpos}{7}{55}%
   \regfieldb{wpos}{7}{48}%
   \regfieldb{slot\_size}{6}{42}%

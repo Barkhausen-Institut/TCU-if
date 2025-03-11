@@ -23,7 +23,7 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
 \end{register}
 
 The frozen bit is set by the TCU for an endpoint if any of the endpoint registers changed and
-\textttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers has no
+\texttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers has no
 effect (and invalidation is denied, see \autoref{sec:epinval}). Furthermore, frozen endpoints are
 implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
 

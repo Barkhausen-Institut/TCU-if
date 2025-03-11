@@ -37,7 +37,8 @@ lead to an \texttt{UNKNOWN\_CMD} error.
   \item \texttt{WRITE} (4): write data from local memory into a region defined in a memory EP,
   \item \texttt{FETCH} (5): fetch a new message from a receive EP,
   \item \texttt{ACK\_MSG} (6): acknowledge that the processing of a message has been completed,
-  \item \texttt{UNFREEZE} (7): unfreeze a frozen endpoint.
+  \item \texttt{UNFREEZE} (7): unfreeze a frozen endpoint,
+  \item \texttt{MKDYN} (8): make an endpoint dynamic.
 \end{itemize}
 
 \section{Pseudo Code Building Blocks}
@@ -468,6 +469,19 @@ misconfiguration anyway (receive EP invalid, not enough space in receive buffer,
     \BlankLine
     $COMMAND \gets 0$\;
     \caption{The TCU's \texttt{UNFREEZE} command.}
+\end{algorithm}
+
+\subsection{\texttt{MKDYN}}
+
+\begin{algorithm}[H]
+    $ep \gets$ read\_ep(COMMAND.ep)\;
+    \extstart{tilemux}\uIf{ep.act != $CUR\_ACT.id$}{unpriv\_stop(FOREIGN\_EP)}\extend{}
+    \BlankLine
+    $ep.dynamic = 1$\;
+    $write\_ep(COMMAND.ep, ep)$\;
+    \BlankLine
+    $COMMAND \gets 0$\;
+    \caption{The TCU's \texttt{MKDYN} command.}
 \end{algorithm}
 
 \subsection{Debug Prints}

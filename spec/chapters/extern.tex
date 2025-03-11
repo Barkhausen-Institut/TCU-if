@@ -248,6 +248,9 @@ on the following building blocks:
 \subsection{\texttt{INV\_EP}}
 \label{sec:epinval}
 
+Note that other fields of the endpoint registers are \emph{not} changed by the \texttt{INV\_EP}
+command, but only the type field.
+
 \begin{algorithm}[H]
     $epid \gets EXT\_CMD.arg0\ \&\ 0xFFFF$\;
     $force \gets EXT\_CMD.arg0 >> 16$\;

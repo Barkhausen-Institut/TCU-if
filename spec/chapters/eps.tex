@@ -12,20 +12,28 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb[gray!60]{}{64}{0}\regnewline%
   \regfieldb{frozen}{1}{63}%
+  \regfieldb{dynamic}{1}{62}%
   \regfieldb[gray!60]{}{44}{19}%
   \regfieldb[tilemux]{act}{16}{3}%
   \regfieldb{type}{3}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
     \item[frozen] indicates whether the endpoint is frozen, i.e., cannot be changed
+    \item[dynamic] indicates whether the endpoint is dynamic, i.e., cannot be frozen
     \item[act] \extstart{tilemux} the id of the activity that can use this endpoint \extend{}
     \item[type] the endpoint type: INVALID (0), SEND (1), RECEIVE (2), or MEMORY (3)
   \end{reglist}\end{regdesc}
 \end{register}
 
-The frozen bit is set by the TCU for an endpoint if any of the endpoint registers changed and
-\texttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers has no
-effect (and invalidation is denied, see \autoref{sec:epinval}). Furthermore, frozen endpoints are
-implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
+The frozen bit is set by the TCU for an non-dynamic endpoint if any of the endpoint registers
+changed and \texttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers
+has no effect (and invalidation is denied, see \autoref{sec:epinval}). Furthermore, frozen endpoints
+are implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
+
+The dynamic bit provides an exception to the frozen concept by explicitly allowing changes to a
+specific endpoint even if the TCU is locked without requiring an acknowledgement by the CU. The
+dynamic bit can be freely set while the TCU is not locked, but can only be set with the unprivileged
+command \texttt{MKDYN} otherwise. That is, while the TCU is locked the frozen bit keeps the current
+value, ignoring the value from external writes to the endpoint.
 
 \section{Memory Endpoint}
 
@@ -34,7 +42,8 @@ implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
   \regfieldb{size}{64}{0}\regnewline%
   \regfieldb{addr}{64}{0}\regnewline%
   \regfieldb{frozen}{1}{63}%
-  \regfieldb[gray!20]{reserved}{10}{53}%
+  \regfieldb{dynamic}{1}{62}%
+  \regfieldb[gray!20]{reserved}{9}{53}%
   \regfieldb{gen}{16}{37}%
   \regfieldb{chip}{6}{31}%
   \regfieldb{tile}{8}{23}%
@@ -62,7 +71,8 @@ implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
   \regfieldb{tgt\_tile}{8}{16}%
   \regfieldb{tgt\_ep}{16}{0}\regnewline%
   \regfieldb{frozen}{1}{63}%
-  \regfieldb[gray!20]{reserved}{7}{56}%
+  \regfieldb{dynamic}{1}{62}%
+  \regfieldb[gray!20]{reserved}{6}{56}%
   \regfieldb{reply}{1}{55}%
   \regfieldb{crd\_ep}{16}{39}%
   \regfieldb{msg\_sz}{6}{33}%
@@ -91,7 +101,7 @@ implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
   \regfieldb{occupied}{64}{0}\regnewline%
   \regfieldb{buffer}{64}{0}\regnewline%
   \regfieldb{frozen}{1}{63}%
-  \regfieldb[gray!20]{reserved}{1}{62}%
+  \regfieldb{dynamic}{1}{62}%
   \regfieldb{rpos}{7}{55}%
   \regfieldb{wpos}{7}{48}%
   \regfieldb{slot\_size}{6}{42}%

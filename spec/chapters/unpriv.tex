@@ -6,9 +6,9 @@ used to pass input arguments for a command to the TCU, start a command, and wait
 is finished. The following unprivileged registers are used:
 
 \begin{register}{H}{COMMAND}{\texttt{0xF000\_0028}}
-  \regfieldb[gray!20]{reserved}{7}{57}%
-  \regfieldb{arg0}{32}{25}%
-  \regfieldb{error}{5}{20}%
+  \regfieldb[gray!20]{reserved}{6}{58}%
+  \regfieldb{arg0}{32}{26}%
+  \regfieldb{error}{6}{20}%
   \regfieldb{ep}{16}{4}%
   \regfieldb{op}{4}{0}\regnewline%
   \begin{regdesc}\begin{reglist}

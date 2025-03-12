@@ -47,9 +47,9 @@ performed and thus no translation CU request is raised. The behavior of privileg
 undefined if the associated extension is disabled.
 
 The bit \texttt{FEATURES.locked} controls whether the TCU is locked. If the bit is set, incoming
-memory requests (read/write) are answered with the \texttt{TCU\_LOCKED} error. The locked bit can
-only be switched from 0 to 1, but not from 1 to 0. However, the locked bit will be reset to 0 on a
-tile reset.
+memory requests (read/write) are answered with the \texttt{TCU\_LOCKED} error unless they hit an
+exclusive region. The locked bit can only be switched from 0 to 1, but not from 1 to 0. However, the
+locked bit will be reset to 0 on a tile reset.
 
 The bits \texttt{FEATURES.gen} hold the current tile generation. It's initial value is 0 and it's
 increased on every reset by 1. The field is read-only for software. If the maximum value
@@ -135,9 +135,9 @@ endpoint). Note also that if the TCU caches external endpoints, the cache is inv
 \extstart{exregs}
 \section{Exclusive Regions}
 
-TCUs in memory tiles contain a certain number of \emph{exclusive-region register}s that restrict the
-access to certain memory regions to specific tiles. These registers come in pairs, each consisting
-of a configuration and a range:
+TCUs in contain a certain number of \emph{exclusive-region register}s that restrict the access to
+certain memory regions to specific tiles. These registers come in pairs, each consisting of a
+configuration and a range:
 
 \begin{register}{H}{Exclusive-Region}{}
   \regfieldb{range}{64}{0}\regnewline%
@@ -168,12 +168,16 @@ size as follows:
     \caption{Conversion of a range specification to address and size.}
 \end{algorithm}
 
-Every memory request sent to the memory tile consults the list of exclusive region registers to
-check whether the access is allowed. Regions that have the valid bit cleared are ignored. If the
-memory request refers to a valid region and the requesting tile does not match the chip, tile, and
-generation of the region, the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise,
-if the memory request refers to a valid region and the permissions are insufficient, the request is
-aborted with error \texttt{EXREG\_NO\_PERM}.
+Every memory request consults the list of exclusive region registers to check whether the access is
+allowed. Regions that have the valid bit cleared are ignored. If the memory request refers to a
+valid region and the requesting tile does not match the chip, tile, and generation of the region,
+the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise, if the memory request
+refers to a valid region and the permissions are insufficient, the request is aborted with error
+\texttt{EXREG\_NO\_PERM}.
+
+If a tile is locked, memory requests fail with the error \texttt{TILE\_LOCKED} unless they hit an
+exclusive region (and the requestor is the owner). If a tile is not locked, memory accesses to
+regions that are not exclusive are permitted.
 
 As their name suggests, each region is exclusive, implying that the TCU needs to ensure that there
 are never two valid regions that overlap. For that reason, the \texttt{SET\_EXCL} external command

@@ -141,11 +141,12 @@ configuration and a range:
 
 \begin{register}{H}{Exclusive-Region}{}
   \regfieldb{range}{64}{0}\regnewline%
-  \regfieldb[gray!20]{reserved}{31}{33}%
-  \regfieldb{gen}{16}{17}%
-  \regfieldb{chip}{6}{11}%
-  \regfieldb{tile}{8}{3}%
-  \regfieldb{rw}{2}{1}%
+  \regfieldb[gray!20]{reserved}{30}{34}%
+  \regfieldb{gen}{16}{18}%
+  \regfieldb{chip}{6}{12}%
+  \regfieldb{tile}{8}{4}%
+  \regfieldb{rw}{2}{2}%
+  \regfieldb{locked}{1}{1}%
   \regfieldb{valid}{1}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
     \item[range] the address range
@@ -153,6 +154,7 @@ configuration and a range:
     \item[chip] the chip ID of the owning tile
     \item[tile] the tile ID of the owning tile
     \item[rw] the permissions (read = 1, write = 2)
+    \item[locked] whether the region is locked (no further overlaps allowed)
     \item[valid] whether this exclusive region will be considered during accesses
   \end{reglist}\end{regdesc}
 \end{register}
@@ -169,20 +171,21 @@ size as follows:
 \end{algorithm}
 
 Every memory request consults the list of exclusive region registers to check whether the access is
-allowed. Regions that have the valid bit cleared are ignored. If the memory request refers to a
-valid region and the requesting tile does not match the chip, tile, and generation of the region,
-the request is aborted with error \texttt{EXREG\_WRONG\_TILE}. Otherwise, if the memory request
-refers to a valid region and the permissions are insufficient, the request is aborted with error
-\texttt{EXREG\_NO\_PERM}.
+allowed. Regions that have the valid bit cleared are ignored. The memory request can hit multiple
+regions that overlap with the request. If the memory request hits one that does match the chip,
+tile, generation of the region, and the requested permissions, the request is allowed. If any region
+overlaps with the request, but the requestor is not permitted to access any of them, the request is
+aborted with error \texttt{EXREG\_NO\_PERM}. Otherwise, access depends on whether the tile is
+locked. If the tile is locked, memory requests that do not successfully match any exclusive region
+fail with the error \texttt{TILE\_LOCKED}. If a tile is not locked, memory accesses to regions that
+are not exclusive are permitted.
 
-If a tile is locked, memory requests fail with the error \texttt{TILE\_LOCKED} unless they hit an
-exclusive region (and the requestor is the owner). If a tile is not locked, memory accesses to
-regions that are not exclusive are permitted.
-
-As their name suggests, each region is exclusive, implying that the TCU needs to ensure that there
-are never two valid regions that overlap. For that reason, the \texttt{SET\_EXCL} external command
-(see \rref{sec:setexcl} for details) fails if a region exists that overlaps with the to-be-installed
-one.
+Exclusive regions can only be accessed by the tiles that have been given access explicitly. To
+support shared exclusive regions, we use the \texttt{locked} bit. If a region is locked, no
+overlapping region can be added anymore, meaning the \texttt{SET\_EXCL} external command (see
+\rref{sec:setexcl} for details) fails in this case. If a new locked region is added, all overlapping
+areas are implicitly locked as well. This ensures that we can establish shared memory in a setup
+phase, but can then lock the shared memory region to ensure that no further sharer is allowed.
 
 To prevent that the kernel can use a combination of \texttt{INV\_EXCL} and \texttt{SET\_EXCL} to
 change an exclusive region, \texttt{INV\_EXCL} is not allowed unless the generation of the owning
@@ -229,9 +232,6 @@ on the following building blocks:
   loads the exclusive region (config+range pair) with given index.
   \item \texttt{exreg\_write(idx, er)}:\\
   stores the given exclusive region (config+range pair) to given index.
-  \item \texttt{exreg\_by\_range(range) -> ExclReg}:\\
-  loads and returns the exclusive region (pair of config and range) that overlaps with given range
-        or returns null. \extend{}
   \item \texttt{ext\_stop(error)}:\\
   stop the execution of the external command by setting the opcode in \texttt{EXT\_CMD.op} to 0 and
   \texttt{EXT\_CMD.err} to the given error.
@@ -306,20 +306,30 @@ command, but only the type field.
 \label{sec:setexcl}
 
 \begin{algorithm}[H]
-    $idx \gets EXT\_CMD.arg0 >> 33$\;
-    $cfg \gets EXT\_CMD.arg0\ \&\ 0x1\_FFFF\_FFFF$\;
+    $idx \gets EXT\_CMD.arg0 >> 34$\;
+    $cfg \gets EXT\_CMD.arg0\ \&\ 0x3\_FFFF\_FFFF$\;
     $range \gets EXT\_ARG1$\;
     \BlankLine
     \uIf{idx >= 16}{ext\_stop(OUT\_OF\_BOUNDS)}
     \BlankLine
-    $er \gets exreg\_read(idx)$\;
-    \uIf{er.cfg.valid}{ext\_stop(EXREG\_EXISTS)}
-    \uIf{exreg\_by\_range(range) is not null}{ext\_stop(EXREG\_OVERLAPS)}
+    $nreg \gets exreg\_read(idx)$\;
+    \uIf{nreg.cfg.valid}{ext\_stop(EXREG\_EXISTS)}
     \BlankLine
-    $er.cfg = cfg$\;
-    $er.cfg.valid = 1$\;
-    $er.range = range$\;
-    $exreg\_write(idx, er)$\;
+    \For{i in 0..16}{
+        $ereg \gets exreg\_read(i)$\;
+        \uIf{ereg.cfg.valid and ereg.range overlaps nreg.range}{
+            \uIf{ereg.cfg.locked}{ext\_stop(EXREG\_OVERLAPS)}
+            \uIf{cfg.locked}{
+                $ereg.cfg.locked = 1$\;
+                $exreg\_write(i, ereg)$\;
+            }
+        }
+    }
+    \BlankLine
+    $nreg.cfg = cfg$\;
+    $nreg.cfg.valid = 1$\;
+    $nreg.range = range$\;
+    $exreg\_write(idx, nreg)$\;
     \BlankLine
     $EXT\_CMD.err \gets NONE$\;
     $EXT\_CMD.op \gets 0$\;

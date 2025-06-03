@@ -241,3 +241,8 @@ fpga_top_v4.8.0 (24.05.2024)
 fpga_top_v4.8.1 (26.08.2024)
     - same top-level as fpga_top_v4.8.0
     - ASM memory (PicoRV32) doubled to 160kB
+
+fpga_top_v4.8.2 (03.06.2025)
+    - same top-level as fpga_top_v4.8.0
+    - ASM memory (PicoRV32) of hash accelerator increased to 512kB
+    - adapted TCU tile description of accelerator tiles (PM3, PM4) according to latest TCU spec

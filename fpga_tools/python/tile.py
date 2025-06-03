@@ -37,24 +37,23 @@ class Tile():
         #check tile content and assign tile instance
         tileInst = None
         if desc.type() == "COMP":
-            if desc.isa() == "RISC-V":
+            if desc.isa() == "RISCV64":
                 if "ROCKET" in desc.attrs() or "BOOM" in desc.attrs():
                     #found Rocket or BOOM core
                     tileInst = pm.PM(self.tcu, self.mem, self.pmNum)
                     self.type = TileType.ROCKET
                     self.name = "PM{}".format(self.pmNum)
-                elif "IMEM" in desc.attrs():
-                    #todo: this should be obtained from tile description, too
-                    if self.pmNum == 3:
-                        accName = "AES"
-                    elif self.pmNum == 4:
-                        accName = "Hash"
-                    else:
-                        accName = "Unknown accelerator"
-                    #found accelerator
-                    tileInst = acc.ACC(self.tcu, self.mem, self.pmNum, accName)
-                    self.type = TileType.ACC
-                    self.name = "PM{}".format(self.pmNum)
+            if desc.isa() == "RISCV32":
+                #accelerator is attached to RISC-V 32-bit Pico core
+                if "ACC-AES" in desc.attrs():
+                    accName = "AES"
+                elif "ACC-Hash" in desc.attrs():
+                    accName = "Hash"
+                else:
+                    accName = "Unknown accelerator"
+                tileInst = acc.ACC(self.tcu, self.mem, self.pmNum, accName)
+                self.type = TileType.ACC
+                self.name = "PM{}".format(self.pmNum)
         
         #desc.type == MEM
         else:

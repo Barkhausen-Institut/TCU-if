@@ -196,8 +196,8 @@ class RecvEP(EP):
 
 class TileDesc():
     TILE_TYPE = ["COMP", "MEM"]
-    TILE_ISA = ["NONE", "RISC-V"]
-    TILE_ATTR = ["BOOM", "ROCKET", "NIC", "SERIAL", "IMEM"]
+    TILE_ISA = ["NONE", "RISCV64", "RISCV32"]
+    TILE_ATTR = ["BOOM", "ROCKET", "NIC", "SERIAL", "IMEM", "IEPS", "PicoRV", "ACC-AES", "ACC-Hash"]
     def __init__(self, desc):
         self.tile_type = desc & 0x2F
         self.tile_isa = (desc >> 6) & 0x1F

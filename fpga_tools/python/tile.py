@@ -2,6 +2,7 @@ from enum import Enum
 
 import noc
 import memory
+import modids
 import pm
 import acc
 import dram
@@ -60,7 +61,7 @@ class Tile():
             if "IMEM" in desc.attrs() and desc.memsize() > 0:
                 tileInst = dram.DRAM(self.mem)
                 self.type = TileType.DRAM
-                self.name = "DRAM"
+                self.name = modids.MODID_TO_TILE[self.nocid[1]]
             elif "NONE" in desc.attrs() and desc.memsize() == 0:
                 tileInst = ethernet.EthernetRegfile(self.tcu, self.mem, self.nocif)
                 self.type = TileType.ETH

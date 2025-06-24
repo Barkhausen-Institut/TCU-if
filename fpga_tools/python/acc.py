@@ -13,6 +13,9 @@ class AccConfigReg(Enum):
     ASM_TRACE_PTR = 11
     ASM_TRACE_COUNT = 12
 
+    ACC_MEM_STARTADDR = 14
+    ACC_MEM_SIZE = 15
+
 class AESConfigReg(Enum):
     STATE_ADDR = 6
     KEY_ADDR = 7
@@ -27,10 +30,6 @@ class ACC():
     ASM_IMEM_SIZE = 0x10000
     ASM_DMEM_START_ADDR = ASM_IMEM_START_ADDR + ASM_IMEM_SIZE
     ASM_DMEM_SIZE = 0x4000
-
-    #ACC MEM: start addr at 0x14000, 4kB
-    ACC_MEM_START_ADDR = ASM_DMEM_START_ADDR + ASM_DMEM_SIZE
-    ACC_MEM_SIZE = 0x1000
 
     PICO_INT_COUNT = 32
 
@@ -146,6 +145,12 @@ class ACC():
 
         fh.close()
 
+
+    #read config for accelerator memory: start address and size in bytes
+    def acc_getMemConfig(self):
+        mem_addr = self.mem[self.tcu.config_reg_addr(AccConfigReg.ACC_MEM_STARTADDR)]
+        mem_size = self.mem[self.tcu.config_reg_addr(AccConfigReg.ACC_MEM_SIZE)]
+        return mem_size, mem_addr
 
     #----------------------------------------------
     #special functions for AES core

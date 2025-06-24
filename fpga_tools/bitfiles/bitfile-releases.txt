@@ -246,3 +246,8 @@ fpga_top_v4.8.2 (03.06.2025)
     - same top-level as fpga_top_v4.8.0
     - ASM memory (PicoRV32) of hash accelerator increased to 512kB
     - adapted TCU tile description of accelerator tiles (PM3, PM4) according to latest TCU spec
+
+fpga_top_v4.8.3 (24.06.2025)
+    - same top-level as fpga_top_v4.8.0
+    - TCU tile description of accelerator tiles (PM3, PM4) only shows memory size of ASM
+    - accelerator memory starts at 0x00200000 (config provided in regfile)

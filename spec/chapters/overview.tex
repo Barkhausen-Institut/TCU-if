@@ -87,14 +87,14 @@ memory tiles and are thus highlighted as \extbox{exregs}.
       regtbl/.style={draw=black,fill=gray!30,minimum width=3cm}
     ]
 
-    \node[draw=black,minimum width=10.45cm,minimum height=8.9cm,anchor=north west] (tcu) at(4,0) {};
+    \node[draw=black,minimum width=10.45cm,minimum height=9.5cm,anchor=north west] (tcu) at(4,0) {};
     \node[draw=black,minimum width=3.4cm,minimum height=3.2cm,anchor=north west] (cu) at (0,0) {CU};
     \node[draw=black,minimum width=3.4cm,minimum height=3.2cm,anchor=south west] (mem) at (0,-7) {SPM/Cache};
 
     \node[below right=.1cm and .1cm of tcu.north west] {TCU};
 
     \node[
-      regtbl,below right=.8cm and .2cm of tcu.north west,minimum height=4.1cm
+      regtbl,below right=.8cm and .2cm of tcu.north west,minimum height=4.7cm
     ] (tcuregs) {};
     \node[below=.1cm of tcuregs.north] {ExtRegs};
     \node[tcureg,below=.7cm of tcuregs.north] (extreg0) {\texttt{FEATURES}};
@@ -103,6 +103,7 @@ memory tiles and are thus highlighted as \extbox{exregs}.
     \node[tcureg,below=0cm of extreg2]        (extreg3) {\texttt{EXT\_ARG1}};
     \node[tcureg,below=0cm of extreg3]        (extreg4) {\texttt{EPS\_ADDR}};
     \node[tcureg,below=0cm of extreg4]        (extreg5) {\texttt{EPS\_SIZE}};
+    \node[tcureg,below=0cm of extreg5]        (extreg6) {\texttt{EXREG\_MNG}};
 
     \node[
       regtbl,below=.2cm of tcuregs.south,minimum height=3.6cm
@@ -212,32 +213,33 @@ as follows:
   \texttt{0xF000\_0018} & \texttt{EXT\_ARG1} & ExtRegs & Extra argument for external commands \\
   \texttt{0xF000\_0020} & \texttt{EPS\_ADDR} & ExtRegs & Address of endpoints region \\
   \texttt{0xF000\_0028} & \texttt{EPS\_SIZE} & ExtRegs & Size of endpoints region \\
+  \texttt{0xF000\_0030} & \texttt{EXREG\_MNG} & ExtRegs & Exclusive region manager \\
   \hline
   \hline
-  \texttt{0xF000\_0030} & \texttt{COMMAND} & UnprivRegs & Triggers unprivileged commands \\
-  \texttt{0xF000\_0038} & \texttt{DATA\_ADDR} & UnprivRegs & Specifies the data address for commands \\
-  \texttt{0xF000\_0040} & \texttt{DATA\_SIZE} & UnprivRegs & Specifies the data size for commands \\
-  \texttt{0xF000\_0048} & \texttt{ARG$_1$} & UnprivRegs & Additional argument for commands \\
-  \texttt{0xF000\_0050} & \texttt{CUR\_TIME} & UnprivRegs & Yields the current time in nanoseconds \\
-  \texttt{0xF000\_0058} & \texttt{PRINT} & UnprivRegs & Triggers a debug print \\
+  \texttt{0xF000\_0038} & \texttt{COMMAND} & UnprivRegs & Triggers unprivileged commands \\
+  \texttt{0xF000\_0040} & \texttt{DATA\_ADDR} & UnprivRegs & Specifies the data address for commands \\
+  \texttt{0xF000\_0048} & \texttt{DATA\_SIZE} & UnprivRegs & Specifies the data size for commands \\
+  \texttt{0xF000\_0050} & \texttt{ARG$_1$} & UnprivRegs & Additional argument for commands \\
+  \texttt{0xF000\_0058} & \texttt{CUR\_TIME} & UnprivRegs & Yields the current time in nanoseconds \\
+  \texttt{0xF000\_0060} & \texttt{PRINT} & UnprivRegs & Triggers a debug print \\
   \hline
   \hline
-  \texttt{0xF000\_0060} & \texttt{PR0} & PrintRegs & First print register \\
-  \texttt{0xF000\_0068} & \texttt{PR1} & PrintRegs & Second print register \\
+  \texttt{0xF000\_0068} & \texttt{PR0} & PrintRegs & First print register \\
+  \texttt{0xF000\_0070} & \texttt{PR1} & PrintRegs & Second print register \\
   \multicolumn{4}{c}{\dots} \\
-  \texttt{0xF000\_0158} & \texttt{PR31} & PrintRegs & Thirty-second print register \\
+  \texttt{0xF000\_0160} & \texttt{PR31} & PrintRegs & Thirty-second print register \\
   \hline
   \hline
-  \texttt{0xF000\_0160} & \texttt{ER0$_0$} & ExRegRegs & First register of \texttt{ER0} (config) \extstart{exregs} \\
-  \texttt{0xF000\_0168} & \texttt{ER0$_1$} & ExRegRegs & Second register of \texttt{ER0} (range) \\
+  \texttt{0xF000\_0168} & \texttt{ER0$_0$} & ExRegRegs & First register of \texttt{ER0} (config) \extstart{exregs} \\
+  \texttt{0xF000\_0170} & \texttt{ER0$_1$} & ExRegRegs & Second register of \texttt{ER0} (range) \\
   \hline
-  \texttt{0xF000\_0170} & \texttt{ER1$_0$} & ExRegRegs & First register of \texttt{ER1} (config) \\
-  \texttt{0xF000\_0178} & \texttt{ER1$_1$} & ExRegRegs & Second register of \texttt{ER1} (range) \\
+  \texttt{0xF000\_0178} & \texttt{ER1$_0$} & ExRegRegs & First register of \texttt{ER1} (config) \\
+  \texttt{0xF000\_0180} & \texttt{ER1$_1$} & ExRegRegs & Second register of \texttt{ER1} (range) \\
   \hline
   \multicolumn{4}{c}{\dots} \\
   \hline
-  \texttt{0xF000\_0250} & \texttt{ER15$_0$} & ExRegRegs & First register of \texttt{ER15} (config) \\
-  \texttt{0xF000\_0258} & \texttt{ER15$_1$} & ExRegRegs & Second register of \texttt{ER15} (range) \extend{} \\
+  \texttt{0xF000\_0258} & \texttt{ER15$_0$} & ExRegRegs & First register of \texttt{ER15} (config) \\
+  \texttt{0xF000\_0260} & \texttt{ER15$_1$} & ExRegRegs & Second register of \texttt{ER15} (range) \extend{} \\
   \hline
   \hline
   \texttt{0xF000\_1000} & \texttt{CU\_REQ} & PrivRegs & TCU-CU interactions \extstart{vmtilex} \\
@@ -301,10 +303,9 @@ The TCU uses the following error codes to provide feedback to the software for f
   \item \texttt{NO\_PMP\_EP} (26): no PMP endpoint,
   \item \texttt{NO\_IRQ} (27): no pending IRQ,
   \item \texttt{EXREG\_NO\_PERM} (28): No permission for exclusive region,
-  \item \texttt{EXREG\_OVERLAPS} (29): Exclusive region overlaps with another region,
-  \item \texttt{EXREG\_EXISTS} (30): Exclusive region already exists,
-  \item \texttt{TILE\_LOCKED} (31): Tile is locked,
-  \item \texttt{WRONG\_GEN} (32): Wrong tile generation,
-  \item \texttt{EP\_FROZEN} (33): Endpoint is frozen,
-  \item \texttt{EP\_NOT\_FROZEN} (34): Endpoint is not frozen.
+  \item \texttt{EXREG\_NO\_MNG} (29): Only the manager has access to exclusive-region registers,
+  \item \texttt{TILE\_LOCKED} (30): Tile is locked,
+  \item \texttt{WRONG\_GEN} (31): Wrong tile generation,
+  \item \texttt{EP\_FROZEN} (32): Endpoint is frozen,
+  \item \texttt{EP\_NOT\_FROZEN} (33): Endpoint is not frozen.
 \end{itemize}

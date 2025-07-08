@@ -25,8 +25,8 @@ privileged commands are used, which can be performed by writing to \texttt{PRIV\
 is defined as follows:
 
 \begin{register}{H}{PRIV\_CMD}{\texttt{0xF000\_1010}}
-  \regfieldb{arg0}{55}{9}%
-  \regfieldb{err}{5}{4}%
+  \regfieldb{arg0}{54}{10}%
+  \regfieldb{err}{6}{4}%
   \regfieldb{op}{4}{0}\regnewline%
   \begin{regdesc}\begin{reglist}
     \item[arg0] the first argument for the privileged command (\texttt{PRIV\_CMD\_ARG1} is the second)

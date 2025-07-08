@@ -163,9 +163,9 @@ given by the application. The TCU stores both header and payload into the receiv
 The header is defined as:
 
 \begin{register}{H}{Message Header}{}
-  \regfieldb[gray!20]{reserved}{32}{32}%
-  \regfieldb{rgen}{16}{16}%
-  \regfieldb{sgen}{16}{0}\regnewline%
+  \regfieldb[gray!20]{reserved}{48}{16}%
+  \regfieldb{rgen}{8}{8}%
+  \regfieldb{sgen}{8}{0}\regnewline%
   \regfieldb{label}{64}{0}\regnewline%
   \regfieldb{rlabel}{64}{0}\regnewline%
   \regfieldb{rep}{16}{48}%

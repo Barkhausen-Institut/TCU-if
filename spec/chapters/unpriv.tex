@@ -281,7 +281,7 @@ and stores messages. Nevertheless, its behavior is described by the following al
     $ep \gets$ read\_ep(rep)\;
     \uIf{ep.type != RECEIVE}{send\_ack(RECV\_GONE) and drop message}
     \uIf{$sizeof(header) + header.length > (1 << ep.slot\_size)$}{send\_ack(RECV\_OUT\_OF\_BOUNDS) and drop message}
-    \uIf{ep.rpl\_eps != 0xFFFF and $ep.rpl\_eps + (1 << ep.slots) > EP\_COUNT$}{send\_ack(RECV\_INV\_RPL\_EPS) and drop message}
+    \uIf{ep.rpl\_eps != 0xFFFF and $ep.rpl\_eps + (1 << ep.slots) > EPS\_SIZE / 32$}{send\_ack(RECV\_INV\_RPL\_EPS) and drop message}
     \BlankLine
     $idx \gets$ find\_slot(ep.occupied, ep.wpos, ep.slots, 0)\;
     \uIf{idx == -1}{send\_ack(RECV\_NO\_SPACE) and drop message}
@@ -343,7 +343,7 @@ misconfiguration anyway (receive EP invalid, not enough space in receive buffer,
     $ep \gets$ read\_ep(COMMAND.ep)\;
     \uIf{ep.type != RECEIVE}{unpriv\_stop(NO\_REP)}
     \uIf{ep.rpl\_eps == 0xFFFF}{unpriv\_stop(REPLIES\_DISABLED)}
-    \uIf{$ep.rpl\_eps + (1 << ep.slots) > EP\_COUNT$}{unpriv\_stop(RECV\_INV\_RPL\_EPS)}
+    \uIf{$ep.rpl\_eps + (1 << ep.slots) > EPS\_SIZE / 32$}{unpriv\_stop(RECV\_INV\_RPL\_EPS)}
     \extstart{tilemux}\uIf{ep.act != $CUR\_ACT.id$}{unpriv\_stop(FOREIGN\_EP)}\extend{}
     \BlankLine
     $idx \gets COMMAND.arg_0 >> ep.slot\_size$\;
@@ -351,7 +351,7 @@ misconfiguration anyway (receive EP invalid, not enough space in receive buffer,
     $sep = read\_ep(ep.rpl\_eps + idx)$\;
     \uIf{sep.type != SEND}{unpriv\_stop(NO\_SEP)}
     \uIf{sep.reply == 0}{unpriv\_stop(SEND\_REPLY\_EP)}
-    \uIf{sep.crd\_ep != 0xFFFF and $sep.crd\_ep >= EP\_COUNT$}{unpriv\_stop(SEND\_INV\_CRD\_EP)}
+    \uIf{sep.crd\_ep != 0xFFFF and $sep.crd\_ep >= EPS\_SIZE / 32$}{unpriv\_stop(SEND\_INV\_CRD\_EP)}
     \uIf{$sep.msg\_sz > 11$}{unpriv\_stop(SEND\_INV\_MSG\_SZ)}
     \uIf{DATA\_SIZE + sizeof(header) > ($1 << sep.msg\_sz$)}{unpriv\_stop(OUT\_OF\_BOUNDS)}
     \uIf{(DATA\_ADDR \& 0xF) != 0}{unpriv\_stop(MSG\_UNALIGNED)}
@@ -430,7 +430,7 @@ misconfiguration anyway (receive EP invalid, not enough space in receive buffer,
 \begin{algorithm}[H]
     $ep \gets$ read\_ep(COMMAND.ep)\;
     \uIf{ep.type != RECEIVE}{unpriv\_stop(NO\_REP)}
-    \uIf{ep.rpl\_eps != 0xFFFF and $ep.rpl\_eps + (1 << ep.slots) > EP\_COUNT$}{unpriv\_stop(RECV\_INV\_RPL\_EPS)}
+    \uIf{ep.rpl\_eps != 0xFFFF and $ep.rpl\_eps + (1 << ep.slots) > EPS\_SIZE / 32$}{unpriv\_stop(RECV\_INV\_RPL\_EPS)}
     \extstart{tilemux}\uIf{ep.act != $CUR\_ACT.id$}{unpriv\_stop(FOREIGN\_EP)}\extend{}
     \BlankLine
     $idx \gets COMMAND.arg_0 >> ep.slot\_size$\;

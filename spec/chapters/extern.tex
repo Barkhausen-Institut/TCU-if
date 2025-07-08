@@ -120,6 +120,9 @@ software defines both \texttt{EPS\_ADDR} and \texttt{EPS\_SIZE}. If the TCU has 
 
 Both \texttt{EPS\_ADDR.offset} and \texttt{EPS\_SIZE} need to be 32-byte aligned (size of an
 endpoint). Note also that if the TCU caches external endpoints, the cache is invalidated upon reset.
+The value in \texttt{EPS\_SIZE} also defines the MMIO region that can be accessed. That is, the
+access to the region from \texttt{0xF000\_2000} to \texttt{0xF020\_2000} is bounds checked and
+limited to \texttt{0xF000\_2000 + EPS\_SIZE}.
 
 \begin{register}{H}{EPS\_ADDR}{\texttt{0xF000\_0018}}
   \regfieldb{chip}{6}{58}%

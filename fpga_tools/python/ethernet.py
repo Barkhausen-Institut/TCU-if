@@ -1,9 +1,26 @@
 
 from ipaddress import IPv4Address
 from time import sleep
+from enum import Enum
 
 import memory
 import modids
+
+class EthernetConfigReg(Enum):
+    SYSTEM_RESET  = 0
+    STATUS_VECTOR = 1
+    UDP_STATUS    = 2
+    RX_UDP_ERROR  = 3
+    MAC_STATUS    = 4
+    FPGA_IP       = 5
+    FPGA_PORT     = 6
+    FPGA_MAC      = 7
+    HOST_IP       = 8
+    HOST_PORT     = 9
+    HOST_CHIPID   = 10
+    CONFIG_VECTOR = 11
+    AN_COMPLETE   = 12
+    PLL_LOCK      = 13
 
 
 class EthernetRegfile(memory.Memory):
@@ -24,7 +41,7 @@ class EthernetRegfile(memory.Memory):
         hostif.write_word(test_addr, test_data)
 
     def system_reset(self):
-        self.rf[self.tcu.config_reg_addr(0)] = 1
+        self.rf[self.tcu.config_reg_addr(EthernetConfigReg.SYSTEM_RESET)] = 1
         print("FPGA System Reset...")
         sleep(5)   #need some time to get FPGA restarted
 
@@ -52,39 +69,39 @@ class EthernetRegfile(memory.Memory):
             print("Could not reset FPGA!")
 
     def getStatusVector(self):
-        return self.rf[self.tcu.config_reg_addr(1)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.STATUS_VECTOR)]
 
     def getUDPstatus(self):
-        return self.rf[self.tcu.config_reg_addr(2)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.UDP_STATUS)]
 
     def getRXUDPerror(self):
-        return self.rf[self.tcu.config_reg_addr(3)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.RX_UDP_ERROR)]
 
     def getMACstatus(self):
-        return self.rf[self.tcu.config_reg_addr(4)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.MAC_STATUS)]
 
     #FPGA IP address is set via DIP switch
     def getFPGAIP(self):
-        return IPv4Address(self.rf[self.tcu.config_reg_addr(5)] & 0xFFFFFFFF)
+        return IPv4Address(self.rf[self.tcu.config_reg_addr(EthernetConfigReg.FPGA_IP)] & 0xFFFFFFFF)
 
     def setFPGAPort(self, fpga_port):
-        self.rf[self.tcu.config_reg_addr(6)] = fpga_port
+        self.rf[self.tcu.config_reg_addr(EthernetConfigReg.FPGA_PORT)] = fpga_port
 
     def getFPGAPort(self):
-        return self.rf[self.tcu.config_reg_addr(6)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.FPGA_PORT)]
 
     #FPGA MAC address is set via DIP switch
     def getFPGAMAC(self):
-        return self.rf[self.tcu.config_reg_addr(7)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.FPGA_MAC)]
 
     def setHostIP(self, host_ip):
-        self.rf[self.tcu.config_reg_addr(8)] = int(IPv4Address(host_ip))
+        self.rf[self.tcu.config_reg_addr(EthernetConfigReg.HOST_IP)] = int(IPv4Address(host_ip))
 
     def getHostIP(self):
-        return IPv4Address(self.rf[self.tcu.config_reg_addr(8)] & 0xFFFFFFFF)
+        return IPv4Address(self.rf[self.tcu.config_reg_addr(EthernetConfigReg.HOST_IP)] & 0xFFFFFFFF)
 
     def setHostPort(self, host_port):
-        self.rf[self.tcu.config_reg_addr(9)] = host_port
+        self.rf[self.tcu.config_reg_addr(EthernetConfigReg.HOST_PORT)] = host_port
 
     def getHostPort(self):
-        return self.rf[self.tcu.config_reg_addr(9)]
+        return self.rf[self.tcu.config_reg_addr(EthernetConfigReg.HOST_PORT)]

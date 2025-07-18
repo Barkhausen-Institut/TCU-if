@@ -493,13 +493,22 @@ class TCUExtReg(Enum):
     FEATURES = 0
     TILE_DESC = 1
     EXT_CMD = 2
+    EXT_ARG1 = 3
+    EXT_EPS_ADDR = 4
+    EXT_EPS_SIZE = 5
+    EXT_EXREG_MNG = 6
 
 class TCUStatusReg(Enum):
     STATUS = 0
     RESET = 1
-    CTRL_FLIT_COUNT = 2
-    BYP_FLIT_COUNT = 3
-    DROP_FLIT_COUNT = 4
+    CLKFREQ = 2
+    TIMEOUT_SEND = 3
+    TIMEOUT_RECV = 4
+    REGADDR_CU_REQ_INT = 5
+    REGADDR_TIMER_INT = 6
+    CTRL_FLIT_COUNT = 7
+    BYP_FLIT_COUNT = 8
+    DROP_FLIT_COUNT = 9
 
 class TCUError():
     ERROR_CODES = [
@@ -530,10 +539,13 @@ class TCUError():
         "TLB_MISS",
         "TLB_FULL",
         "NO_PMP_EP",
-        "NONE",
-        "NONE",
-        "NONE",
-        "NONE",
+        "NO_IRQ",
+        "EXREG_NO_PERM",
+        "EXREG_NO_MNG",
+        "TILE_LOCKED",
+        "WRONG_GEN",
+        "EP_FROZEN",
+        "EP_NOT_FROZEN",
         "CRITICAL"]
 
     def print_error(error_code):
@@ -545,8 +557,8 @@ class TCUError():
 class TCU():
     EP_COUNT = 128
     BASE_ADDR = 0xF000_0000
-    STATUS_OFF = 0x0000_3000
-    CONFIG_OFF = 0x0000_3028
+    STATUS_OFF = 0x0020_2000
+    CONFIG_OFF = 0x0020_3000
     LOG_OFF = 0x0100_0000
 
     def __init__(self, version):
@@ -568,7 +580,7 @@ class TCU():
             return TCU.BASE_ADDR + 0x0000_0040
         if self.version == 2:
             return TCU.BASE_ADDR + 0x0000_0048
-        return TCU.BASE_ADDR + 0x0000_0038
+        return TCU.BASE_ADDR + 0x0000_2000
 
     def ep_addr(self, ep):
         return self.eps_addr() + ep * (8 * 3)

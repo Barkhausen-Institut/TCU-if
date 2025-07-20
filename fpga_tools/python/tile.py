@@ -43,6 +43,10 @@ class Tile():
                     tileInst = pm.PM(self.tcu, self.mem, self.pmNum)
                     self.type = TileType.ROCKET
                     self.name = "PM{}".format(self.pmNum)
+                    if "ROCKET" in desc.attrs():
+                        self.tcu_set_clkfreq_mhz(100)
+                    elif "BOOM" in desc.attrs():
+                        self.tcu_set_clkfreq_mhz(80)
             if desc.isa() == "RISCV32":
                 #accelerator is attached to RISC-V 32-bit Pico core
                 if "ACC-AES" in desc.attrs():
@@ -54,6 +58,7 @@ class Tile():
                 tileInst = acc.ACC(self.tcu, self.mem, self.pmNum, accName)
                 self.type = TileType.ACC
                 self.name = "PM{}".format(self.pmNum)
+                self.tcu_set_clkfreq_mhz(100)
         
         #desc.type == MEM
         else:
@@ -61,10 +66,12 @@ class Tile():
                 tileInst = dram.DRAM(self.mem)
                 self.type = TileType.DRAM
                 self.name = modids.MODID_TO_TILE[self.nocid[1]]
+                self.tcu_set_clkfreq_mhz(100)
             elif "NONE" in desc.attrs() and desc.memsize() == 0:
                 tileInst = ethernet.EthernetRegfile(self.tcu, self.mem, self.nocif)
                 self.type = TileType.ETH
                 self.name = "ETH"
+                self.tcu_set_clkfreq_mhz(125)
 
         if tileInst == None or self.type == None:
             print("Warning: Could not identify tile instance and type for tile {}".format(self.id))
@@ -104,6 +111,9 @@ class Tile():
 
     def tcu_reset(self):
         self.mem[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = 1
+
+    def tcu_set_clkfreq_mhz(self, clkfreq=100):
+        self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)] = clkfreq
 
     def tcu_ctrl_flit_count(self):
         flits = self.mem[self.tcu.status_reg_addr(TCUStatusReg.CTRL_FLIT_COUNT)]

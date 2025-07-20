@@ -35,25 +35,10 @@ py_module_initializer!(nocrw, |py, m| {
 
     m.add(
         py,
-        "read8b_nocarq",
-        py_fn!(py, read8b_nocarq(chip_id: u8, mod_id: u8, addr: u32)),
-    )?;
-
-    m.add(
-        py,
         "write_bytes",
         py_fn!(
             py,
             write_bytes(chip_id: u8, mod_id: u8, addr: u32, b: &PyBytes, burst: bool)
-        ),
-    )?;
-
-    m.add(
-        py,
-        "write8b_nocarq",
-        py_fn!(
-            py,
-            write8b_nocarq(chip_id: u8, mod_id: u8, addr: u32, b: &PyBytes)
         ),
     )?;
 
@@ -153,24 +138,9 @@ fn read_bytes(py: Python<'_>, chip_id: u8, mod_id: u8, addr: u32, len: u32) -> P
 
     let mut guard = COM.lock().unwrap();
     let com = guard.as_mut().unwrap();
-    com.read(FPGAModule::new(chip_id, mod_id), addr, len as usize, false)
+    com.read(FPGAModule::new(chip_id, mod_id), addr, len as usize)
         .map(|bytes| PyBytes::new(py, &bytes))
         .map_err(|e| PyErr::new::<TypeError, _>(py, format!("read_bytes failed: {}", e)))
-}
-
-fn read8b_nocarq(py: Python<'_>, chip_id: u8, mod_id: u8, addr: u32) -> PyResult<PyBytes> {
-    info!(
-        "read8b_nocarq(chip_id={}, mod_id={}, addr={:#x})",
-        chip_id, mod_id, addr
-    );
-
-    let _g = LogGuard::default();
-
-    let mut guard = COM.lock().unwrap();
-    let com = guard.as_mut().unwrap();
-    com.read(FPGAModule::new(chip_id, mod_id), addr, 8, true)
-        .map(|bytes| PyBytes::new(py, &bytes))
-        .map_err(|e| PyErr::new::<TypeError, _>(py, format!("read8b_nocarq failed: {}", e)))
 }
 
 fn write_bytes(
@@ -198,36 +168,11 @@ fn write_bytes(
         com.write_burst(FPGAModule::new(chip_id, mod_id), addr, b.data(py))
     }
     else {
-        com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py), false)
+        com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py))
     };
 
     res.map(|_| 0)
         .map_err(|e| PyErr::new::<TypeError, _>(py, format!("write_bytes failed: {}", e)))
-}
-
-fn write8b_nocarq(
-    py: Python<'_>,
-    chip_id: u8,
-    mod_id: u8,
-    addr: u32,
-    b: &PyBytes,
-) -> PyResult<u64> {
-    info!(
-        "write8b_nocarq(chip_id={}, mod_id={}, addr={:#x}, len={})",
-        chip_id,
-        mod_id,
-        addr,
-        b.data(py).len(),
-    );
-
-    let _g = LogGuard::default();
-
-    let mut guard = COM.lock().unwrap();
-    let com = guard.as_mut().unwrap();
-    let res = com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py), true);
-
-    res.map(|_| 0)
-        .map_err(|e| PyErr::new::<TypeError, _>(py, format!("write8b_nocarq failed: {}", e)))
 }
 
 fn send_bytes(

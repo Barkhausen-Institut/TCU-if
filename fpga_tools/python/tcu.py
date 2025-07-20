@@ -569,11 +569,7 @@ class TCU():
 
     def ext_reg_addr(self, reg):
         assert isinstance(reg, TCUExtReg)
-        if self.version == 1:
-            return TCU.BASE_ADDR + reg.value * 8
-        if reg == TCUExtReg.FEATURES:
-            return TCU.BASE_ADDR + 0 * 8
-        return TCU.BASE_ADDR + 1 * 8
+        return TCU.BASE_ADDR + reg.value * 8
 
     def eps_addr(self):
         if self.version == 1:

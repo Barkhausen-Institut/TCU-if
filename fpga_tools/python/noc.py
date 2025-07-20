@@ -18,7 +18,9 @@ class NoCethernet(object):
         return nocrw.read_bytes(trg_id[0], trg_id[1], addr, len)
 
     def write_bytes(self, trg_id, addr, bytes, burst=False):
-        return nocrw.write_bytes(trg_id[0], trg_id[1], addr, bytes, burst)
+        write_bytes_ret = nocrw.write_bytes(trg_id[0], trg_id[1], addr, bytes, burst)
+        self.receive_bytes()
+        return write_bytes_ret
 
     def send_bytes(self, trg_id, trg_ep, bytes):
         return nocrw.send_bytes(self.tcu.version, trg_id[0], trg_id[1], trg_ep, bytes)

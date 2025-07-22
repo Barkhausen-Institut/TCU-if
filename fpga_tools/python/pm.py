@@ -85,6 +85,8 @@ class PM():
         fh.write("%s: Number of Rocket instruction traces: %d\n" % (self.name, trace_count))
 
         if trace_count > 0:
+            fh.write("columns: addr opcode priv.-level exception interrupt cause tval\n")
+
             #read current idx to calculate address of first trace
             trace_current_idx = self.mem[self.tcu.config_reg_addr(RocketConfigReg.TRACE_IDX)]
             if trace_current_idx >= trace_count:
@@ -93,21 +95,21 @@ class PM():
                 trace_start_idx = self.ROCKET_TRACEMEM_SIZE + trace_current_idx - trace_count
             trace_start_addr = self.ROCKET_TRACEMEM_BASE + 32*trace_start_idx
 
-            fh.write("%s: trace_start_idx: %d\n" % (self.name, trace_start_idx))
-            fh.write("columns: addr opcode priv.-level exception interrupt cause tval\n")
-
             tmp_count = trace_count
             #reduce tmp_count if traces wrap around
             if (trace_start_idx+trace_count) > self.ROCKET_TRACEMEM_SIZE:
                 tmp_count = self.ROCKET_TRACEMEM_SIZE - trace_start_idx
 
             #read traces, one trace occupies 32 byte
-            trace_data = []
-            for addr in range(self.ROCKET_TRACEMEM_BASE, self.ROCKET_TRACEMEM_BASE + self.ROCKET_TRACEMEM_SIZE*32, 8):
-                trace_data.append(self.mem[addr])
+            trace_data = self.mem.read_words(trace_start_addr, tmp_count*4)
+
+            #read the rest from start of trace memory
+            if tmp_count < trace_count:
+                trace_data_rest = self.mem.read_words(self.ROCKET_TRACEMEM_BASE, (trace_count-tmp_count)*4)
+                trace_data.extend(trace_data_rest)
 
             #print to file
-            for i in range(0, self.ROCKET_TRACEMEM_SIZE*4, 4):
+            for i in range(0, trace_count*4, 4):
                 trace_addr = trace_data[i] & 0xFFFFFFFF
                 trace_opcode = trace_data[i] >> 32
                 trace_priv = trace_data[i+1] & 0x7

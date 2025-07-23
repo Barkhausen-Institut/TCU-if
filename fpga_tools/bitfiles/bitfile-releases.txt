@@ -255,3 +255,9 @@ fpga_top_v4.8.3 (24.06.2025)
 fpga_top_v4.9.0 (20.07.2025)
     - 2x2 NoC with 8 Rocket core tiles
     - TCU v4 incl. partial TEE support
+
+fpga_top_v4.9.1 (23.07.2025)
+    - same top-level as fpga_top_v4.9.0
+    - fix reading Rocket trace
+    - fix priv. INS_TLB command
+    - added first logging functionality

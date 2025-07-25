@@ -269,7 +269,7 @@ class LOG():
               "CMD_PRIV_INV_PAGE",
               "CMD_PRIV_INV_TLB",
               "CMD_PRIV_INS_TLB",
-              "CMD_PRIV_XCHG_VPE",
+              "CMD_PRIV_XCHG_ACT",
               "CMD_PRIV_SET_TIMER",
               "CMD_PRIV_ABORT",
               "CMD_PRIV_FINISH",
@@ -279,7 +279,7 @@ class LOG():
               "PRIV_TLB_WRITE_ENTRY",
               "PRIV_TLB_READ_ENTRY",
               "PRIV_TLB_DEL_ENTRY",
-              "PRIV_CUR_VPE_CHANGE",
+              "PRIV_CUR_ACT_CHANGE",
               "PRIV_TIMER_INTR",
               "PMP_ACCESS_DENIED",
               "EXCLREG_ACCESS_DENIED"]
@@ -431,11 +431,11 @@ class LOG():
             log_phys = (upper_data64 >> 12) & 0xFFFFF
             return ret_string + "actid: {:#x}, virt. page: {:#07x}, phys. page: {:#07x}".format(log_actid, log_virt, log_phys)
 
-        #xchg_act (act=id+msgs)
-        if (id_string == "CMD_PRIV_XCHG_VPE"):
-            log_curact = ((upper_data64 & 0xFF) << 24) | (lower_data64 >> 40)
-            log_xchgact = (upper_data64 >> 8) & 0xFFFFFFFF
-            return ret_string + "cur_act: {:#x}, xchg_act: {:#x}".format(log_curact, log_xchgact)
+        #xchg_act
+        if (id_string == "CMD_PRIV_XCHG_ACT"):
+            log_curactid = (lower_data64 >> 40) & 0xFFFF
+            log_xchgactid = ((upper_data64 & 0xFF) << 8) | (lower_data64 >> 56)
+            return ret_string + "cur_actid: {:#x}, xchg_actid: {:#x}".format(log_curactid, log_xchgactid)
 
         #timer
         if (id_string == "CMD_PRIV_SET_TIMER"):
@@ -456,7 +456,7 @@ class LOG():
         if (id_string == "PRIV_CU_REQ_PMPFAIL"):
             log_write = (lower_data64 >> 40) & 0x1
             log_error = (lower_data64 >> 41) & 0x3F
-            log_addr = ((upper_data64 & 0x1FFF) << 19) | (lower_data64 >> 47)
+            log_addr = ((upper_data64 & 0x7FFF) << 17) | (lower_data64 >> 47)
             return ret_string + "write: {}, error: {}, addr: {:#x}".format(log_write, TCUError.print_error(log_error), log_addr)
 
         #TLB write
@@ -479,8 +479,8 @@ class LOG():
             log_tlb_virtpage = ((upper_data64 & (0xFFFFFFFFFFF if version == 1 else 0xFFF)) << 8) | (lower_data64 >> 56)
             return ret_string + "actid: {:#x}, virt. page: {:#016x}".format(log_tlb_actid, log_tlb_virtpage)
 
-        #reg CUR_VPE has changed its value
-        if (id_string == "PRIV_CUR_VPE_CHANGE"):
+        #reg CUR_ACT has changed its value
+        if (id_string == "PRIV_CUR_ACT_CHANGE"):
             log_new_cur_act = ((upper_data64 & 0xFF) << 24) | (lower_data64 >> 40)
             log_old_cur_act = (upper_data64 >> 8) & 0xFFFFFFFF
             return ret_string + "old cur_act: {:#x}, new cur_act: {:#x}".format(log_old_cur_act, log_new_cur_act)

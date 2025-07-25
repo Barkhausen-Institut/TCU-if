@@ -261,3 +261,10 @@ fpga_top_v4.9.1 (23.07.2025)
     - fix reading Rocket trace
     - fix priv. INS_TLB command
     - added first logging functionality
+
+fpga_top_v4.9.2 (25.07.2025)
+    - same top-level as fpga_top_v4.9.0
+    - stability improvements for msg. passing
+    - TCU logging updates
+    - added TCU log in DRAM tiles
+    - TCU TLB cmd bug fix

@@ -268,3 +268,9 @@ fpga_top_v4.9.2 (25.07.2025)
     - TCU logging updates
     - added TCU log in DRAM tiles
     - TCU TLB cmd bug fix
+
+fpga_top_v4.10.0 (30.07.2025)
+    - 2x2 NoC with Rocket cores at PM0, PM1, and PM2
+    - BOOM cores at PM5, PM6, and PM7
+    - AES and hash accelerator incl. ASM at PM3 and PM4, respectively, incl. TCU v4
+    - in contrast to fpga_top_v4.8.3, ASM has also access to accelerator memory

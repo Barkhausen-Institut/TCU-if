@@ -109,8 +109,17 @@ class Tile():
         status = self.mem[self.tcu.status_reg_addr(TCUStatusReg.STATUS)]
         return (status & 0xFF, (status >> 8) & 0xFF, (status >> 16) & 0xFF, (status >> 24) & 0xFF)
 
-    def tcu_reset(self):
-        self.mem[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = 1
+    def tcu_reset(self, resetBits=0x3):
+        """
+        TCU components can be resetted individually by setting the corresponding bit:
+        0: unpriv. regs
+        1: priv. regs
+        2: TLB
+        3: TCU log
+        4: NoC Ctrl
+        5: TCU Ctrl (except ext. cmds)
+        """
+        self.mem[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = resetBits
 
     def tcu_set_clkfreq_mhz(self, clkfreq=100):
         self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)] = clkfreq

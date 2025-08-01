@@ -7,7 +7,7 @@ import pm
 import acc
 import dram
 import ethernet
-from tcu import TCUStatusReg, TCUExtReg, EP, LOG, TileDesc
+from tcu import TCUStatusReg, TCUExtReg, EP, LOG, TileDesc, TCUError
 
 class TileType(Enum):
     ROCKET = 0
@@ -94,6 +94,9 @@ class Tile():
         #TCU version cannot be changed
         self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] = flags
 
+    def tcu_get_lock(self):
+        return (self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 3) & 0x1
+
     def tcu_version(self):
         version = self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 32
         vmajor = version & 0xFFFF
@@ -120,6 +123,21 @@ class Tile():
         5: TCU Ctrl (except ext. cmds)
         """
         self.mem[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = resetBits
+
+    #triggers ext. cmd RESET
+    def tcu_ext_cmd_reset(self, start_core=False):
+        self.mem[self.tcu.ext_reg_addr(TCUExtReg.EXT_CMD)] = (int(start_core) << 10) | 0x2
+        max_poll_count = 3
+        while max_poll_count:
+            ext_cmd = self.mem[self.tcu.ext_reg_addr(TCUExtReg.EXT_CMD)]
+            opcode = ext_cmd & 0xF
+            error = (ext_cmd >> 4) & 0x3F
+            if opcode == 0:
+                return TCUError.print_error(error)
+            max_poll_count -= 1
+        if max_poll_count == 0:
+            print("PM{}: TCU ext cmd RESET timed out".format(self.pmNum))
+            return "TIMEOUT_NOC"
 
     def tcu_set_clkfreq_mhz(self, clkfreq=100):
         self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)] = clkfreq

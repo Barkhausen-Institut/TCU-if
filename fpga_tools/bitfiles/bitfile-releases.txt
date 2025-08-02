@@ -274,3 +274,8 @@ fpga_top_v4.10.0 (30.07.2025)
     - BOOM cores at PM5, PM6, and PM7
     - AES and hash accelerator incl. ASM at PM3 and PM4, respectively, incl. TCU v4
     - in contrast to fpga_top_v4.8.3, ASM has also access to accelerator memory
+
+fpga_top_v4.10.1 (02.08.2025)
+    - same top-level as fpga_top_v4.10.0
+    - TCU fix: if TCU is locked, EP becomes frozen if reg0 of EP is written
+    - TCU fix: frozen EPs are only seen as invalid from commands, but can be read out normally

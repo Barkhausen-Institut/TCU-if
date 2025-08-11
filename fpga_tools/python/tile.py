@@ -97,6 +97,11 @@ class Tile():
     def tcu_get_lock(self):
         return (self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 3) & 0x1
 
+    #temporary debugging feature to unlock TCU
+    def tcu_unlock(self):
+        feat = self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)]
+        self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] = feat & ~(0x1 << 3)
+
     def tcu_version(self):
         version = self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 32
         vmajor = version & 0xFFFF

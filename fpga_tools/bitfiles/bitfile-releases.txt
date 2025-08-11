@@ -283,3 +283,8 @@ fpga_top_v4.10.1 (02.08.2025)
 fpga_top_v4.10.2 (06.08.2025)
     - same top-level as fpga_top_v4.10.0
     - TCU fix: EPs do only become frozen if SW writes to them (not from TCU command)
+
+fpga_top_v4.10.3 (11.08.2025)
+    - same top-level as fpga_top_v4.10.0
+    - TCU: added temporary debug feature: locked bit can be written from external
+    - TCU: added mng_set bit and current number of excl. regions to EXREG_MNG reg

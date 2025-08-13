@@ -288,3 +288,8 @@ fpga_top_v4.10.3 (11.08.2025)
     - same top-level as fpga_top_v4.10.0
     - TCU: added temporary debug feature: locked bit can be written from external
     - TCU: added mng_set bit and current number of excl. regions to EXREG_MNG reg
+
+fpga_top_v4.10.4 (13.08.2025)
+    - same top-level as fpga_top_v4.10.0
+    - TCU: fix in TCU to memory bridge in accelerator tile
+    - TCU: forward read request in parallel with checking excl. regions (TCU version 4.1.0)

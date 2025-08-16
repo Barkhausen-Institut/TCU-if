@@ -294,7 +294,7 @@ fpga_top_v4.10.4 (13.08.2025)
     - TCU: fix in TCU to memory bridge in accelerator tile
     - TCU: forward read request in parallel with checking excl. regions (TCU version 4.1.0)
 
-fpga_top_v4.10.5 (15.08.2025)
+fpga_top_v4.10.5 (16.08.2025)
     - same top-level as fpga_top_v4.10.0
     - TCU: fix dynamic Bit in EPs (TCU version 4.1.1)
     - fix tile description for BOOM cores

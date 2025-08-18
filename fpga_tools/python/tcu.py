@@ -284,10 +284,10 @@ class LOG():
               "PMP_ACCESS_DENIED",
               "EXCLREG_ACCESS_DENIED"]
 
-    def split_tcu_log(version, upper_data64, lower_data64):
+    def split_tcu_log(version, clkfreq, upper_data64, lower_data64):
         tcu_log = LOG()
         log_id = (lower_data64 >> 32) & 0xFF
-        log_time = lower_data64 & 0xFFFFFFFF
+        log_time = int(((lower_data64 & 0xFFFFFFFF) * 1000) / clkfreq)
         id_string = tcu_log.get_tcu_log(log_id)
         time_string = "Time: {:12}".format(log_time)
         ret_string = time_string + ", " + id_string + ", "

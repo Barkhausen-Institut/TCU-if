@@ -174,6 +174,8 @@ class Tile():
         else:
             log_count = self.mem[self.tcu.log_addr()]
 
+        clkfreq = self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)]
+
         print("%s: Number of TCU log messages: %d" % (self.name, log_count))
         if log_count > 65536:
             fh.write("%s: Number of TCU log messages: %d (only 65536 shown, last log at %d)\n" % (self.name, log_count, log_count%65536-1))
@@ -186,7 +188,7 @@ class Tile():
             for i in range(log_count):
                 lower = self.mem[self.tcu.log_addr() + 0x10 + i * 16]
                 upper = self.mem[self.tcu.log_addr() + 0x18 + i * 16]
-                fh.write("%5d: %s\n" % (i, LOG.split_tcu_log(self.tcu.version, upper, lower)))
+                fh.write("%5d: %s\n" % (i, LOG.split_tcu_log(self.tcu.version, clkfreq, upper, lower)))
         fh.close()
 
     def tcu_set_log_mask(self, mask):

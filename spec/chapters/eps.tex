@@ -24,16 +24,47 @@ bits, starting with 3 bits for the endpoint type (T), 16 bits for the activity t
   \end{reglist}\end{regdesc}
 \end{register}
 
-The frozen bit is set by the TCU for an non-dynamic endpoint if any of the endpoint registers
-changed and \texttt{FEATURES.locked} is set. If the frozen bit is set, writing to endpoint registers
-has no effect (and invalidation is denied, see \autoref{sec:epinval}). Furthermore, frozen endpoints
-are implicitly of type \texttt{INVALID} and thereby disallow all commands with them.
+The frozen bit is set by the TCU for an non-dynamic endpoint if the first endpoint register
+(containing the type) changed and \texttt{FEATURES.locked} is set. If the frozen bit is set,
+software-triggered writes to endpoint registers have no effect (and invalidation is denied, see
+\autoref{sec:epinval}). TCU-internal writes triggered by commands are allowed though. Furthermore,
+frozen endpoints behave like their type is \texttt{INVALID} and thereby disallow all commands with
+them. However, the CU will still read the frozen configuration exactly as stored in the registers in
+order to verify it before unfreezing the endpoint.
 
 The dynamic bit provides an exception to the frozen concept by explicitly allowing changes to a
 specific endpoint even if the TCU is locked without requiring an acknowledgement by the CU. The
 dynamic bit can be freely set while the TCU is not locked, but can only be set with the unprivileged
 command \texttt{MKDYN} otherwise. That is, while the TCU is locked the frozen bit keeps the current
-value, ignoring the value from external writes to the endpoint.
+value, ignoring the value from external writes to the endpoint. The dynamic is unset by the external
+\texttt{INV\_EP} command.
+
+The following pseudo code defines the behavior for software-triggered write accesses to endpoint
+registers:
+
+\begin{algorithm}[H]
+    \uIf{FEATURES.locked == 1}{
+        \uIf{idx == 0 and ep.dynamic == 1}{
+            $ep \gets new\_ep$\;
+            $ep.dynamic \gets 1$\;
+        }
+        \uElseIf{idx == 0 and ep.dynamic == 0 and ep.frozen == 0}{
+            $ep \gets new\_ep$\;
+            $ep.frozen \gets 1$\;
+        }
+        \uElseIf{ep.frozen == 1}{
+            return;
+        }
+        \uElse{
+            $ep \gets new\_ep$\;
+        }
+    }
+    \uElse{
+        $ep \gets new\_ep$\;
+    }
+    \caption{Software-triggered write accesses to an EP register (\texttt{ep} is the current value
+    of the EP, \texttt{new\_ep} is the new value, \texttt{idx} is the register index).}
+\end{algorithm}
 
 \section{Memory Endpoint}
 

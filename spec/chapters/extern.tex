@@ -180,10 +180,36 @@ request, access depends on whether the tile is locked. If the tile is locked, me
 do not successfully match any exclusive region fail with the error \texttt{TILE\_LOCKED}. If a tile
 is not locked, memory accesses to regions that are not exclusive are permitted.
 
-The exclusive registers are only accessible by the tile set in \texttt{EXREG\_MNG}. If the initiator
-of a read/write request to such a register differs from the tile in \texttt{EXREG\_MNG}, the request
-fails with error \texttt{EXREG\_NO\_MNG}. The register \texttt{EXREG\_MNG} is write-once and
-therefore ignores all write accesses after it has been written once.
+The exclusive registers are only accessible by the tile set in \texttt{EXREG\_MNG}, defined as
+follows:
+\setlength{\regWidth}{.95\textwidth}
+\begin{register}{H}{Exclusive-Region Manager}{\texttt{0xF000\_0030}}
+  \regfield[gray!20]{reserved}{24}{40}{?}%
+  \regfield{count}{8}{32}{0}%
+  \regfield[gray!20]{reserved}{15}{17}{?}%
+  \regfield{locked}{1}{16}{0}%
+  \regfield{chip}{8}{8}{0}%
+  \regfield{tile}{8}{0}{0}%
+  \reglabel{Reset}\regnewline%
+  \begin{regdesc}\begin{reglist}
+    \item[count] the number of valid regions
+    \item[locked] if set, write accesses are only allowed for the tile defined by chip and tile ID
+    \item[chip] the chip ID of the manager tile (see locked bit)
+    \item[tile] the tile ID of the manager tile (see locked bit)
+  \end{reglist}\end{regdesc}
+\end{register}
+\setlength{\regWidth}{\textwidth}
+
+\noindent If the locked bit is set, the initiator of a write request to both the \texttt{EXREG\_MNG}
+and the exclusive-region registers needs to match the set chip and tile ID. Otherwise, the request
+fails with error \texttt{EXREG\_NO\_MNG}. The manager is also expected to write the number of valid
+exclusive regions into the \texttt{count} field of \texttt{EXREG\_MNG}. The TCU will only consider
+regions whose index is smaller than the set count.
+
+Note that the exclusive registers are \emph{not} reset during the external \texttt{RESET} command,
+but can only be changed by the exclusive-region manager. This gives the exclusive-region manager the
+chance to enforce policies for these regions (e.g., zero them before they can be reused) even if the
+operating system decides to reset a tile.
 \extend{}
 
 \section{External Commands}

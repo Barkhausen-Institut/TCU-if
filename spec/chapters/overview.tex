@@ -199,7 +199,8 @@ to make specific regions of memory only accessible by a specific tile.
 \section{Registers}
 
 The TCU has several registers that are accessible through memory-mapped input/output~(MMIO). The
-memory interface from CU to TCU is expected to be 64-bit wide. The MMIO region of the TCU is defined
+memory interface from CU to TCU is expected to be 64-bit wide. The TCU implementation may or may not
+support accesses to multiple registers with a single request. The MMIO region of the TCU is defined
 as follows:
 
 \noindent

@@ -1,4 +1,5 @@
 mod com;
+mod proto;
 
 use com::{Communicator, FPGAModule};
 use cpython::exc::TypeError;
@@ -17,13 +18,15 @@ use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::Duration;
 
+use crate::proto::{ARQProtocol, NoCProtocol, TCUv4Protocol};
+
 py_module_initializer!(nocrw, |py, m| {
     m.add(
         py,
         "connect",
         py_fn!(
             py,
-            connect(fpga_ip: &str, fpga_port: u16, chip_id: u8, reset: bool)
+            connect(fpga_ip: &str, fpga_port: u16, chip_id: u8, tcu_major: u8, reset: bool)
         ),
     )?;
 
@@ -35,10 +38,25 @@ py_module_initializer!(nocrw, |py, m| {
 
     m.add(
         py,
+        "read8b_nocarq",
+        py_fn!(py, read8b_nocarq(chip_id: u8, mod_id: u8, addr: u32)),
+    )?;
+
+    m.add(
+        py,
         "write_bytes",
         py_fn!(
             py,
             write_bytes(chip_id: u8, mod_id: u8, addr: u32, b: &PyBytes, burst: bool)
+        ),
+    )?;
+
+    m.add(
+        py,
+        "write8b_nocarq",
+        py_fn!(
+            py,
+            write8b_nocarq(chip_id: u8, mod_id: u8, addr: u32, b: &PyBytes)
         ),
     )?;
 
@@ -79,14 +97,14 @@ fn log_level(env_var: &str, def: LevelFilter) -> LevelFilter {
     }
 }
 
-fn do_connect(fpga_ip: &str, fpga_port: u16, chip_id: u8, reset: bool) -> std::io::Result<()> {
+fn do_connect(fpga_ip: &str, fpga_port: u16, chip_id: u8, tcu_major: u8, reset: bool) -> std::io::Result<()> {
     // ensure that the log directory exists
     create_dir("log").ok();
 
     // log to stderr and to file, controlled via env variables RUST_LOG and RUST_FILE_LOG
     let term_level = log_level("RUST_LOG", LevelFilter::Warn);
     let file_level = log_level("RUST_FILE_LOG", LevelFilter::Info);
-    let mut loggers: Vec<Box<(dyn SharedLogger + 'static)>> = vec![];
+    let mut loggers: Vec<Box<dyn SharedLogger + 'static>> = vec![];
     loggers.push(WriteLogger::new(
         file_level,
         Config::default(),
@@ -101,8 +119,13 @@ fn do_connect(fpga_ip: &str, fpga_port: u16, chip_id: u8, reset: bool) -> std::i
     CombinedLogger::init(loggers).unwrap();
 
     info!("connect(fpga_ip={}, fpga_port={})", fpga_ip, fpga_port);
-
-    let mut com = Communicator::new(fpga_ip, fpga_port)?;
+    
+    let proto = if tcu_major < 4 {
+        Box::new(ARQProtocol) as Box<dyn NoCProtocol>
+    } else {
+        Box::new(TCUv4Protocol) as Box<dyn NoCProtocol>
+    };
+    let mut com = Communicator::new(fpga_ip, fpga_port, proto)?;
     if reset {
         info!("Reset FPGA...");
         com.fpga_reset(chip_id)?;
@@ -117,13 +140,14 @@ fn connect(
     fpga_ip: &str,
     fpga_port: u16,
     chip_id: u8,
+    tcu_major: u8,
     reset: bool,
 ) -> PyResult<u64> {
     assert!(COM.lock().unwrap().is_none());
 
     let _g = LogGuard::default();
 
-    do_connect(fpga_ip, fpga_port, chip_id, reset)
+    do_connect(fpga_ip, fpga_port, chip_id, tcu_major, reset)
         .map(|_| 0)
         .map_err(|e| PyErr::new::<TypeError, _>(py, format!("connect failed: {}", e)))
 }
@@ -138,9 +162,24 @@ fn read_bytes(py: Python<'_>, chip_id: u8, mod_id: u8, addr: u32, len: u32) -> P
 
     let mut guard = COM.lock().unwrap();
     let com = guard.as_mut().unwrap();
-    com.read(FPGAModule::new(chip_id, mod_id), addr, len as usize)
+    com.read(FPGAModule::new(chip_id, mod_id), addr, len as usize, false)
         .map(|bytes| PyBytes::new(py, &bytes))
         .map_err(|e| PyErr::new::<TypeError, _>(py, format!("read_bytes failed: {}", e)))
+}
+
+fn read8b_nocarq(py: Python<'_>, chip_id: u8, mod_id: u8, addr: u32) -> PyResult<PyBytes> {
+    info!(
+        "read8b_nocarq(chip_id={}, mod_id={}, addr={:#x})",
+        chip_id, mod_id, addr
+    );
+
+    let _g = LogGuard::default();
+
+    let mut guard = COM.lock().unwrap();
+    let com = guard.as_mut().unwrap();
+    com.read(FPGAModule::new(chip_id, mod_id), addr, 8, true)
+        .map(|bytes| PyBytes::new(py, &bytes))
+        .map_err(|e| PyErr::new::<TypeError, _>(py, format!("read8b_nocarq failed: {}", e)))
 }
 
 fn write_bytes(
@@ -168,11 +207,36 @@ fn write_bytes(
         com.write_burst(FPGAModule::new(chip_id, mod_id), addr, b.data(py))
     }
     else {
-        com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py))
+        com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py), false)
     };
 
     res.map(|_| 0)
         .map_err(|e| PyErr::new::<TypeError, _>(py, format!("write_bytes failed: {}", e)))
+}
+
+fn write8b_nocarq(
+    py: Python<'_>,
+    chip_id: u8,
+    mod_id: u8,
+    addr: u32,
+    b: &PyBytes,
+) -> PyResult<u64> {
+    info!(
+        "write8b_nocarq(chip_id={}, mod_id={}, addr={:#x}, len={})",
+        chip_id,
+        mod_id,
+        addr,
+        b.data(py).len(),
+    );
+
+    let _g = LogGuard::default();
+
+    let mut guard = COM.lock().unwrap();
+    let com = guard.as_mut().unwrap();
+    let res = com.write_noburst(FPGAModule::new(chip_id, mod_id), addr, b.data(py), true);
+
+    res.map(|_| 0)
+        .map_err(|e| PyErr::new::<TypeError, _>(py, format!("write8b_nocarq failed: {}", e)))
 }
 
 fn send_bytes(

@@ -23,6 +23,7 @@ class Tile():
         self.id = "C{:x}-M{:02x}".format(nocid[0], nocid[1])
         self.name = None
         self.mem = memory.Memory(nocif, self.nocid)
+        self.nocarq = noc.NoCARQRegfile(self.nocid)
         self.pmNum = pmNum  #only used for PMs
         self.type = None
         self.desc = self.tcu_tile_desc()

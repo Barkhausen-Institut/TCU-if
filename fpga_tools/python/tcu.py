@@ -578,8 +578,6 @@ class TCUError():
 class TCU():
     EP_COUNT = 128
     BASE_ADDR = 0xF000_0000
-    STATUS_OFF = 0x0020_2000
-    CONFIG_OFF = 0x0020_3000
     LOG_OFF = 0x0100_0000
 
     def __init__(self, version):
@@ -604,10 +602,12 @@ class TCU():
 
     def status_reg_addr(self, reg):
         assert isinstance(reg, TCUStatusReg)
-        return TCU.BASE_ADDR + TCU.STATUS_OFF + reg.value * 8
+        status_off = 0x0020_2000 if self.version == 4 else 0x3000
+        return TCU.BASE_ADDR + status_off + reg.value * 8
 
     def config_reg_addr(self, reg):
-        return TCU.BASE_ADDR + TCU.CONFIG_OFF + reg.value * 8
+        config_off = 0x0020_3000 if self.version == 4 else 0x3028
+        return TCU.BASE_ADDR + config_off + reg.value * 8
 
     def log_addr(self):
         return TCU.BASE_ADDR + TCU.LOG_OFF

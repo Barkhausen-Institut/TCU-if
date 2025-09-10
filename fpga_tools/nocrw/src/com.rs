@@ -1,9 +1,7 @@
 use log::{debug, error};
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 use socket2::{self, Domain, Protocol, SockAddr, Socket};
 use std::cmp;
 use std::collections::VecDeque;
-use std::convert::TryFrom;
 use std::fmt;
 use std::io::{Error, ErrorKind, Result};
 use std::mem::{transmute, MaybeUninit};
@@ -11,37 +9,21 @@ use std::net::{IpAddr, SocketAddr};
 use std::thread;
 use std::time::Duration;
 
+use crate::proto::{
+    Mode, NoCProtocol, BYTES_PER_BURST_PACKET, BYTES_PER_PACKET, MAX_READ_REQ_LEN,
+    MAX_SEND_BURST_LEN,
+};
+
 const ETH_MOD_ID: u8 = 0x05;
 const HOST_MOD: FPGAModule = FPGAModule::new(0x3F, 0x05);
 
 const NOC_PACKET_LEN: usize = 18;
 const UDP_PAYLOAD_LEN: usize = 1472;
 
-const BYTES_PER_BURST_PACKET: usize = 16;
-const BYTES_PER_PACKET: usize = 8;
-
 const MAX_SELF_TEST_RETRIES: usize = 100;
-
-// TODO using 2047 leads to an EAGAIN error for recv_from after about 50KB. using 1024+512 seems to
-// work fine and reaches a sufficiently high data rate.
-const MAX_READ_REQ_LEN: usize = (1024 + 512) * BYTES_PER_BURST_PACKET;
-const MAX_WRITE_BURST_LEN: usize = 255 * BYTES_PER_BURST_PACKET;
-const MAX_SEND_BURST_LEN: usize = 128 * BYTES_PER_BURST_PACKET;
 
 const READ_TIMEOUT: Duration = Duration::from_secs(1);
 const MAX_READ_RETRIES: usize = 3;
-
-#[repr(u8)]
-#[derive(Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive, Copy, Clone)]
-enum Mode {
-    DMARead        = 0,
-    DMAResp        = 1,
-    DMAWrite       = 2,
-    DMAAck         = 3,
-    TCUMsg         = 4,
-    TCUMsgAck      = 5,
-    Error          = 15
-}
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct FPGAModule {
@@ -64,6 +46,7 @@ impl fmt::Display for FPGAModule {
 pub struct Communicator {
     addr: SockAddr,
     sock: Socket,
+    proto: Box<dyn NoCProtocol>,
     next_req_id: u32,
     send_buf: Vec<u8>,
     burst: Option<(u8, bool)>,
@@ -71,12 +54,12 @@ pub struct Communicator {
 }
 
 enum NocPacket<'b> {
-    Normal((FPGAModule, Mode, u32, &'b [u8])),
+    Normal((FPGAModule, u8, u32, &'b [u8])),
     Burst(&'b [u8]),
 }
 
 impl Communicator {
-    pub fn new(fpga_ip: &str, fpga_port: u16) -> Result<Self> {
+    pub fn new(fpga_ip: &str, fpga_port: u16, proto: Box<dyn NoCProtocol>) -> Result<Self> {
         let sock = Socket::new(Domain::IPV4, socket2::Type::DGRAM, Some(Protocol::UDP))?;
         let addr = "0.0.0.0:".to_string() + &fpga_port.to_string();
         sock.bind(&addr.parse::<SocketAddr>().unwrap().into())?;
@@ -89,6 +72,7 @@ impl Communicator {
                 fpga_port,
             )),
             sock,
+            proto,
             next_req_id: 0,
             send_buf: Vec::with_capacity(UDP_PAYLOAD_LEN),
             burst: None,
@@ -99,7 +83,7 @@ impl Communicator {
     pub fn self_test(&mut self) -> Result<()> {
         let test_data = [0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xFF];
         // use an offset that nobody else should use; notice the alignment
-        self.write_noburst(HOST_MOD, 0xDEAD_BEE0, &test_data)?;
+        self.write_noburst(HOST_MOD, 0xDEAD_BEE0, &test_data, false)?;
 
         let mut buf: [MaybeUninit<u8>; UDP_PAYLOAD_LEN] = [MaybeUninit::uninit(); UDP_PAYLOAD_LEN];
 
@@ -120,7 +104,7 @@ impl Communicator {
                 NocPacket::Normal((src, mode, off, data)) => {
                     // we assume that nobody is writing to this offset, except for the self test
                     if off == 0xDEAD_BEE0 {
-                        assert!(mode == Mode::DMAWrite);
+                        assert!(mode == self.proto.to_noc_mode(Mode::Write));
                         assert!(self.burst.is_none());
                         assert!(src == HOST_MOD);
                         assert!(data.iter().rev().eq(test_data.iter()));
@@ -143,6 +127,7 @@ impl Communicator {
             FPGAModule::new(chip_id, ETH_MOD_ID),
             0xF0003028,
             &reset_data,
+            false,
         )?;
 
         //need some time to get FPGA restarted
@@ -192,12 +177,13 @@ impl Communicator {
         let word_count_bytes = word_count.to_le_bytes();
         // TODO change bsel according to data.len()
         let noc_packet = encode_packet(
+            &self.proto,
             target,
             true,
             0xFF,
             ep as u32,
             &word_count_bytes,
-            Mode::TCUMsg,
+            self.proto.to_noc_mode(Mode::Message),
         );
         self.append_packet(&noc_packet)?;
 
@@ -205,7 +191,7 @@ impl Communicator {
         let mut rem_header = &header_bytes[0..header_length];
         while rem_header.len() > 0 {
             let pkt =
-                encode_packet_burst(rem_header.len() > 16 || data.len() > 0, &rem_header[0..16]);
+                encode_packet_burst(&self.proto, rem_header.len() > 16 || data.len() > 0, &rem_header[0..16]);
             self.append_packet(&pkt)?;
             rem_header = &rem_header[16..];
         }
@@ -220,10 +206,10 @@ impl Communicator {
                 for _ in 0..(BYTES_PER_BURST_PACKET - (data.len() - pos)) {
                     padded_data.push(0);
                 }
-                encode_packet_burst(not_last, &padded_data)
+                encode_packet_burst(&self.proto, not_last, &padded_data)
             }
             else {
-                encode_packet_burst(not_last, &data[pos..])
+                encode_packet_burst(&self.proto, not_last, &data[pos..])
             };
             self.append_packet(&noc_packet)?;
 
@@ -264,15 +250,16 @@ impl Communicator {
         while pos + NOC_PACKET_LEN <= size {
             let noc_packet = self.decode_packet(&buf[pos..])?;
             match noc_packet {
-                NocPacket::Normal((src, mode, off, data)) => {
-                    if mode == Mode::DMAAck {
+                NocPacket::Normal((src, noc_mode, off, data)) => {
+                    let mode = self.proto.from_noc_mode(noc_mode);
+                    if mode == Mode::Ack {
                         debug!("Received DMAAck from {} for addr {:#x}", src, off);
                         pos += NOC_PACKET_LEN;
                         continue;
                     }
 
                     // ignore other packets
-                    if mode != Mode::DMAWrite {
+                    if mode != Mode::Write {
                         debug!("Ignoring packet with mode {:?}", mode);
                         pos += NOC_PACKET_LEN;
                         continue;
@@ -303,15 +290,17 @@ impl Communicator {
         &mut self,
         target: FPGAModule,
         mut addr: u32,
-        mut len: usize
+        mut len: usize,
+        arq: bool,
     ) -> Result<Vec<u8>> {
         let mut buf: [MaybeUninit<u8>; UDP_PAYLOAD_LEN] = [MaybeUninit::uninit(); UDP_PAYLOAD_LEN];
         let mut res = Vec::with_capacity(len);
+        let read_mode = if arq { Mode::ReadARQ } else { Mode::Read };
 
         let mut retries = 0;
         let mut last_addr = addr;
         while len > 0 {
-            match self.read_single(&mut buf, &mut res, target, Mode::DMARead, addr, len) {
+            match self.read_single(&mut buf, &mut res, target, read_mode, addr, len) {
                 Err(e) => {
                     error!("read request failed: {}", e);
 
@@ -357,7 +346,15 @@ impl Communicator {
 
         let byte_count = cmp::min(MAX_READ_REQ_LEN, len);
         let byte_count_bytes = ((byte_count as u64) << 32 | req_id as u64).to_le_bytes();
-        let noc_packet = encode_packet(target, false, 0xFF, addr, &byte_count_bytes, read_mode);
+        let noc_packet = encode_packet(
+            &self.proto,
+            target,
+            false,
+            0xFF,
+            addr,
+            &byte_count_bytes,
+            self.proto.to_noc_mode(read_mode),
+        );
         self.append_packet(&noc_packet)?;
         self.flush_packets()?;
 
@@ -374,8 +371,9 @@ impl Communicator {
                 let noc_packet = self.decode_packet(&recv_buf[pos..])?;
 
                 match noc_packet {
-                    NocPacket::Normal((src, mode, off, data)) => {
-                        if mode == Mode::DMAWrite {
+                    NocPacket::Normal((src, noc_mode, off, data)) => {
+                        let mode = self.proto.from_noc_mode(noc_mode);
+                        if mode == Mode::Write {
                             debug!("Keeping packet with mode {:?} for later", mode);
                             // keep the packet for later and go to the next UDP packet
                             self.received_pkts.push_back(recv_buf[0..size].to_vec());
@@ -384,14 +382,14 @@ impl Communicator {
                             break 'pkt_loop;
                         }
 
-                        if mode == Mode::DMAAck {
+                        if mode == Mode::Ack {
                             debug!("Received DMAAck from {} for addr {:#x}", src, off);
                             pos += NOC_PACKET_LEN;
                             continue;
                         }
 
                         // ignore other packets; TODO support messages
-                        if mode != Mode::DMAResp {
+                        if mode != Mode::Resp {
                             debug!("Ignoring packet with mode {:?}", mode);
                             pos += NOC_PACKET_LEN;
                             continue;
@@ -435,7 +433,8 @@ impl Communicator {
         &mut self,
         target: FPGAModule,
         mut addr: u32,
-        data: &[u8]
+        data: &[u8],
+        arq: bool,
     ) -> Result<usize> {
         let build_min_packet = |data: &[u8], pos: usize| {
             let mut buf = data[pos..].to_vec();
@@ -447,13 +446,23 @@ impl Communicator {
         };
 
         let mut pos = 0;
-        let write_mode = Mode::DMAWrite;
+        let arq_write = if arq { Mode::WriteARQ } else { Mode::Write };
+        let arq_write = self.proto.to_noc_mode(arq_write);
+        let def_write = self.proto.to_noc_mode(Mode::Write);
 
         // align it first
         let rem = addr as usize % BYTES_PER_PACKET;
         if rem != 0 {
             let buf = build_min_packet(data, pos);
-            let noc_pkt = encode_packet(target, false, 0xFF >> rem, addr, &buf, write_mode);
+            let noc_pkt = encode_packet(
+                &self.proto,
+                target,
+                false,
+                0xFF >> rem,
+                addr,
+                &buf,
+                arq_write,
+            );
             self.append_packet(&noc_pkt)?;
 
             let amount = BYTES_PER_PACKET - rem;
@@ -463,7 +472,15 @@ impl Communicator {
 
         // write full and aligned packets
         while pos + BYTES_PER_PACKET <= data.len() {
-            let noc_pkt = encode_packet(target, false, 0xFF, addr, &data[pos..], write_mode);
+            let noc_pkt = encode_packet(
+                &self.proto,
+                target,
+                false,
+                0xFF,
+                addr,
+                &data[pos..],
+                arq_write,
+            );
             self.append_packet(&noc_pkt)?;
 
             addr += BYTES_PER_PACKET as u32;
@@ -475,12 +492,13 @@ impl Communicator {
             let buf = build_min_packet(data, pos);
             let rem = data.len() - pos;
             let noc_pkt = encode_packet(
+                &self.proto,
                 target,
                 false,
                 0xFF >> (0x7 - rem),
                 addr,
                 &buf,
-                Mode::DMAWrite,
+                def_write,
             );
             self.append_packet(&noc_pkt)?;
 
@@ -491,31 +509,36 @@ impl Communicator {
     }
 
     pub fn write_burst(&mut self, target: FPGAModule, mut addr: u32, data: &[u8]) -> Result<usize> {
+        let max_burst_len = self.proto.max_write_burst_len();
+        let write_mode = self.proto.to_noc_mode(Mode::Write);
+
         let mut pos = 0;
-        let mut burst_pos = MAX_WRITE_BURST_LEN;
+        let mut burst_pos = max_burst_len;
+
         while pos + BYTES_PER_BURST_PACKET <= data.len() {
             assert!(addr % 16 == 0); // TODO support other alignments
-            if burst_pos >= MAX_WRITE_BURST_LEN {
+            if burst_pos >= max_burst_len {
                 // write initial NoC packet that defines the burst length
-                let byte_count = cmp::min(MAX_WRITE_BURST_LEN, data.len() - pos);
+                let byte_count = cmp::min(max_burst_len, data.len() - pos);
                 let word_count = (byte_count / BYTES_PER_BURST_PACKET) as u64;
                 let word_count_bytes = word_count.to_le_bytes();
                 let noc_packet = encode_packet(
+                    &self.proto,
                     target,
                     true,
                     0xFF,
                     addr,
                     &word_count_bytes,
-                    Mode::DMAWrite,
+                    write_mode,
                 );
                 self.append_packet(&noc_packet)?;
                 addr += word_count as u32 * BYTES_PER_BURST_PACKET as u32;
                 burst_pos = 0;
             }
 
-            let not_last = burst_pos + (BYTES_PER_BURST_PACKET * 2) <= MAX_WRITE_BURST_LEN
+            let not_last = burst_pos + (BYTES_PER_BURST_PACKET * 2) <= max_burst_len
                 && (pos + BYTES_PER_BURST_PACKET * 2) <= data.len();
-            let noc_packet = encode_packet_burst(not_last, &data[pos..]);
+            let noc_packet = encode_packet_burst(&self.proto, not_last, &data[pos..]);
             self.append_packet(&noc_packet)?;
 
             pos += BYTES_PER_BURST_PACKET;
@@ -523,7 +546,7 @@ impl Communicator {
         }
 
         // sent the remaining data without burst, if there is any
-        self.write_noburst(target, addr, &data[pos..])
+        self.write_noburst(target, addr, &data[pos..], false)
     }
 
     fn append_packet(&mut self, packet: &[u8]) -> Result<()> {
@@ -569,7 +592,7 @@ impl Communicator {
             // 0x1   | 14    |  1
             // 0x0   | 15    |  0
 
-            let begin = if bytes[0] == 0 {
+            let begin = if !self.proto.is_burst(bytes) {
                 (0xF - (bsel >> 4)) as usize
             }
             else {
@@ -583,7 +606,7 @@ impl Communicator {
             };
 
             *first = false;
-            if bytes[0] == 0 {
+            if !self.proto.is_burst(bytes) {
                 self.burst = None;
             }
 
@@ -595,11 +618,10 @@ impl Communicator {
                 | (bytes[7] as u32) << 16
                 | (bytes[8] as u32) << 8
                 | bytes[9] as u32;
-            if bytes[0] == 1 {
+            if self.proto.is_burst(bytes) {
                 self.burst = Some((bytes[1], true));
             }
-            let mode =
-                Mode::try_from(bytes[5] & 0xF).map_err(|_| Error::from(ErrorKind::InvalidData))?;
+            let mode = bytes[5] & 0xF;
             let data = if bytes[1] == 0xFF {
                 &bytes[10..18]
             }
@@ -614,17 +636,18 @@ impl Communicator {
 }
 
 fn encode_packet(
+    proto: &Box<dyn NoCProtocol>,
     target: FPGAModule,
     burst: bool,
     bsel: u8,
     addr: u32,
     bytes: &[u8],
-    mode: Mode,
+    mode: u8,
 ) -> [u8; 18] {
     let mode_byte: u8 = mode.into();
     [
         // burst bit
-        burst as u8,
+        proto.burst_byte(burst, false),
         // bsel
         bsel,
         // source and target
@@ -649,10 +672,10 @@ fn encode_packet(
     ]
 }
 
-fn encode_packet_burst(not_last: bool, bytes: &[u8]) -> [u8; 18] {
+fn encode_packet_burst(proto: &Box<dyn NoCProtocol>, not_last: bool, bytes: &[u8]) -> [u8; 18] {
     [
         // burst bit
-        not_last as u8,
+        proto.burst_byte(not_last, false),
         0xFF,
         // data
         bytes[15],

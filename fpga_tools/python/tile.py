@@ -7,7 +7,8 @@ import pm
 import acc
 import dram
 import ethernet
-from tcu import TCUStatusReg, TCUExtReg, EP, LOG, TileDesc, TCUError
+from tcu import TCUStatusReg, TCUExtReg, EP, TileDesc, TCUError
+from tcu_log import LOG
 
 class TileType(Enum):
     ROCKET = 0

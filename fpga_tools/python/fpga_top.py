@@ -84,6 +84,13 @@ class FPGA_TOP(fpga):
         self.dram1.nocarq.set_arq_enable(val)
         self.dram2.nocarq.set_arq_enable(val)
 
+    def tcu_log_enable(self, enabled, mask=0xFFFFFFFF):
+        val = mask if enabled else 0
+        for pm in self.pmTiles:
+            pm.tcu_set_log_mask(val)
+        self.dram1.tcu_set_log_mask(val)
+        self.dram2.tcu_set_log_mask(val)
+
     def tear(self):
         self.noccomm.tear()
         self.uart.close()

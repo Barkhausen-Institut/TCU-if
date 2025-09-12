@@ -7,7 +7,7 @@ import pm
 import acc
 import dram
 import ethernet
-from tcu import TCUStatusReg, TCUExtReg, EP, TileDesc, TCUError
+from tcu import EP, TileDesc, TCUError
 from tcu_log import LOG
 
 class TileType(Enum):
@@ -94,29 +94,29 @@ class Tile():
     def tcu_set_features(self, priv, vm, ctxsw):
         flags = ((ctxsw & 0x1) << 2) | ((vm & 0x1) << 1) | (priv & 0x1)
         #TCU version cannot be changed
-        self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] = flags
+        self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.FEATURES)] = flags
 
     def tcu_get_lock(self):
-        return (self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 3) & 0x1
+        return (self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.FEATURES)] >> 3) & 0x1
 
     #temporary debugging feature to unlock TCU
     def tcu_unlock(self):
-        feat = self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)]
-        self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] = feat & ~(0x1 << 3)
+        feat = self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.FEATURES)]
+        self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.FEATURES)] = feat & ~(0x1 << 3)
 
     def tcu_version(self):
-        version = self.mem[self.tcu.ext_reg_addr(TCUExtReg.FEATURES)] >> 32
+        version = self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.FEATURES)] >> 32
         vmajor = version & 0xFFFF
         vminor = (version >> 16) & 0xFF
         vpatch = (version >> 24) & 0xFF
         return (vmajor, vminor, vpatch)
 
     def tcu_tile_desc(self):
-        tile_desc = self.mem[self.tcu.ext_reg_addr(TCUExtReg.TILE_DESC)]
+        tile_desc = self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.TILE_DESC)]
         return TileDesc(tile_desc)
 
     def tcu_status(self):
-        status = self.mem[self.tcu.status_reg_addr(TCUStatusReg.STATUS)]
+        status = self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.STATUS)]
         return (status & 0xFF, (status >> 8) & 0xFF, (status >> 16) & 0xFF, (status >> 24) & 0xFF)
 
     def tcu_reset(self, resetBits=0x3):
@@ -129,14 +129,14 @@ class Tile():
         4: NoC Ctrl
         5: TCU Ctrl (except ext. cmds)
         """
-        self.mem[self.tcu.status_reg_addr(TCUStatusReg.RESET)] = resetBits
+        self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.RESET)] = resetBits
 
     #triggers ext. cmd RESET
     def tcu_ext_cmd_reset(self, start_core=False):
-        self.mem[self.tcu.ext_reg_addr(TCUExtReg.EXT_CMD)] = (int(start_core) << 10) | 0x2
+        self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.EXT_CMD)] = (int(start_core) << 10) | 0x2
         max_poll_count = 3
         while max_poll_count:
-            ext_cmd = self.mem[self.tcu.ext_reg_addr(TCUExtReg.EXT_CMD)]
+            ext_cmd = self.mem[self.tcu.ext_reg_addr(self.tcu.TCUExtReg.EXT_CMD)]
             opcode = ext_cmd & 0xF
             error = (ext_cmd >> 4) & 0x3F
             if opcode == 0:
@@ -147,25 +147,26 @@ class Tile():
             return "TIMEOUT_NOC"
 
     def tcu_set_clkfreq_mhz(self, clkfreq=100):
-        self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)] = clkfreq
+        self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.CLKFREQ)] = clkfreq
 
+    # flit counts only for version < 4
     def tcu_ctrl_flit_count(self):
-        flits = self.mem[self.tcu.status_reg_addr(TCUStatusReg.CTRL_FLIT_COUNT)]
+        flits = self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.CTRL_FLIT_COUNT)]
         flits_rx = flits & 0xFFFFFFFF
         flits_tx = flits >> 32
         return (flits_tx, flits_rx)
 
     def tcu_byp_flit_count(self):
-        flits = self.mem[self.tcu.status_reg_addr(TCUStatusReg.BYP_FLIT_COUNT)]
+        flits = self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.BYP_FLIT_COUNT)]
         flits_rx = flits & 0xFFFFFFFF
         flits_tx = flits >> 32
         return (flits_tx, flits_rx)
 
     def tcu_drop_flit_count(self):
-        return self.mem[self.tcu.status_reg_addr(TCUStatusReg.DROP_FLIT_COUNT)] & 0xFFFFFFFF
+        return self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.DROP_FLIT_COUNT)] & 0xFFFFFFFF
 
     def tcu_error_flit_count(self):
-        return self.mem[self.tcu.status_reg_addr(TCUStatusReg.DROP_FLIT_COUNT)] >> 32
+        return self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.DROP_FLIT_COUNT)] >> 32
 
     def tcu_print_log(self, filename, all=False):
         # open and truncate file first (reads below might fail)
@@ -176,7 +177,7 @@ class Tile():
         else:
             log_count = self.mem[self.tcu.log_addr()]
 
-        clkfreq = self.mem[self.tcu.status_reg_addr(TCUStatusReg.CLKFREQ)]
+        clkfreq = self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.CLKFREQ)]
 
         print("%s: Number of TCU log messages: %d" % (self.name, log_count))
         if log_count > 65536:

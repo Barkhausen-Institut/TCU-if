@@ -230,7 +230,20 @@ class TileDesc():
             self.type(), self.isa(), self.attrs(), self.memsize())
 
 
-class TCUExtReg(Enum):
+class TCUExtRegV2(Enum):
+    FEATURES = 0
+    TILE_DESC = 1
+    EXT_CMD = 2
+
+class TCUExtRegV3(Enum):
+    FEATURES = 0
+    TILE_DESC = 1
+    EXT_CMD = 2
+    EXT_EPS_ADDR = 3
+    EXT_EPS_SIZE = 4
+    EXT_EXREG_MNG = 5
+
+class TCUExtRegV4(Enum):
     FEATURES = 0
     TILE_DESC = 1
     EXT_CMD = 2
@@ -239,7 +252,7 @@ class TCUExtReg(Enum):
     EXT_EPS_SIZE = 5
     EXT_EXREG_MNG = 6
 
-class TCUStatusReg(Enum):
+class TCUStatusRegV3(Enum):
     STATUS = 0
     RESET = 1
     CLKFREQ = 2
@@ -250,6 +263,24 @@ class TCUStatusReg(Enum):
     CTRL_FLIT_COUNT = 7
     BYP_FLIT_COUNT = 8
     DROP_FLIT_COUNT = 9
+
+class TCUStatusRegV4(Enum):
+    STATUS = 0
+    RESET = 1
+    CLKFREQ = 2
+    TIMEOUT_SEND = 3
+    TIMEOUT_RECV = 4
+    REGADDR_CU_REQ_INT = 5
+    REGADDR_TIMER_INT = 6
+    PMP_OFFSET = 7
+    STRM_COUNT_EXT_EP = 8
+    STRM_COUNT_LOC_DMA = 9
+    STRM_COUNT_EXT_DMA = 10
+    STRM_COUNT_LOC_MSG = 11
+    STRM_COUNT_EXT_MSG = 12
+    STRM_COUNT_PMP = 13
+    STRM_COUNT_BYPASS = 14
+
 
 class TCUError():
     ERROR_CODES = [
@@ -302,12 +333,27 @@ class TCU():
 
     def __init__(self, version):
         self.version = version
+        if version < 3:
+            self.TCUExtReg = TCUExtRegV2
+            self.TCUStatusReg = TCUStatusRegV3
+            self.status_off = 0x0000_3000
+            self.config_off = 0x0000_3028
+        elif version < 4:
+            self.TCUExtReg = TCUExtRegV3
+            self.TCUStatusReg = TCUStatusRegV3
+            self.status_off = 0x0000_3000
+            self.config_off = 0x0000_3028
+        else:
+            self.TCUExtReg = TCUExtRegV4
+            self.TCUStatusReg = TCUStatusRegV4
+            self.status_off = 0x0020_2000
+            self.config_off = 0x0020_3000
 
     def ep_count(self):
         return TCU.EP_COUNT
 
     def ext_reg_addr(self, reg):
-        assert isinstance(reg, TCUExtReg)
+        assert isinstance(reg, self.TCUExtReg)
         return TCU.BASE_ADDR + reg.value * 8
 
     def eps_addr(self):
@@ -318,16 +364,17 @@ class TCU():
         return TCU.BASE_ADDR + 0x0000_2000
 
     def ep_addr(self, ep):
-        return self.eps_addr() + ep * (8 * 3)
+        if self.version < 3:
+            return self.eps_addr() + ep * (8 * 3)
+        else:
+            return self.eps_addr() + ep * (8 * 4)
 
     def status_reg_addr(self, reg):
-        assert isinstance(reg, TCUStatusReg)
-        status_off = 0x0020_2000 if self.version == 4 else 0x3000
-        return TCU.BASE_ADDR + status_off + reg.value * 8
+        assert isinstance(reg, self.TCUStatusReg)
+        return TCU.BASE_ADDR + self.status_off + reg.value * 8
 
     def config_reg_addr(self, reg):
-        config_off = 0x0020_3000 if self.version == 4 else 0x3028
-        return TCU.BASE_ADDR + config_off + reg.value * 8
+        return TCU.BASE_ADDR + self.config_off + reg.value * 8
 
     def log_addr(self):
         return TCU.BASE_ADDR + TCU.LOG_OFF

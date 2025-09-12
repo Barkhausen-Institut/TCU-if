@@ -171,6 +171,15 @@ class Tile():
     def tcu_error_flit_count(self):
         return self.mem[self.tcu.status_reg_addr(self.tcu.TCUStatusReg.DROP_FLIT_COUNT)] >> 32
 
+    # returns in/out packet count for specific TCU NoC channel (only version 4)
+    # select channel from TCUStatusReg
+    def tcu_noc_stream_count(self, reg):
+        assert isinstance(reg, self.tcu.TCUStatusReg)
+        strms = self.mem[self.tcu.status_reg_addr(reg)]
+        strms_rx = strms & 0xFFFFFFFF
+        strms_tx = strms >> 32
+        return (strms_tx, strms_rx)
+
     def tcu_print_log(self, filename, all=False):
         # open and truncate file first (reads below might fail)
         fh = open(filename, 'w')

@@ -32,10 +32,10 @@ class EP():
     MEMORY = 3
 
     def invalid():
-        return EP([0, 0, 0])
+        return EP(0, [EP.INVALID, 0, 0, 0])
 
     def from_regs(regs):
-        ep = EP(regs)
+        ep = EP(0, regs)
         if ep.type() == EP.SEND:
             return SendEP(regs)
         if ep.type() == EP.RECEIVE:
@@ -44,7 +44,8 @@ class EP():
             return MemEP(regs)
         return ep
 
-    def __init__(self, regs):
+    def __init__(self, version, regs):
+        self.version = version
         self.regs = regs
 
     def type(self):
@@ -56,12 +57,20 @@ class EP():
         self.regs[0] &= ~(0xFFFF << 3)
         self.regs[0] |= (act & 0xFFFF) << 3;
 
+    def dynamic(self):
+        return (self.regs[0] >> 62) & 0x1
+
+    def frozen(self):
+        return (self.regs[0] >> 63) & 0x1
+
     def __repr__(self):
-        return "Inv [type={}, act={}]".format(self.type(), self.act())
+        return "Inv [type={}, act={}, dynamic={}, frozen={}]".format(
+            self.type(), self.act(), self.dynamic(), self.frozen()
+        )
 
 class MemEP(EP):
-    def __init__(self, regs = [EP.MEMORY, 0, 0]):
-        super(MemEP, self).__init__(regs)
+    def __init__(self, version = 0, regs = [EP.MEMORY, 0, 0, 0]):
+        super(MemEP, self).__init__(version, regs)
 
     def tile(self):
         return (self.regs[0] >> 23) & 0xFF
@@ -74,6 +83,15 @@ class MemEP(EP):
     def set_chip(self, chip):
         self.regs[0] &= ~(0x3F << 31)
         self.regs[0] |= (chip & 0x3F) << 31;
+
+    def gen(self):
+        return (self.regs[0] >> 37) & 0xFF
+
+    def dynamic(self):
+        return (self.regs[0] >> 62) & 0x1
+
+    def frozen(self):
+        return (self.regs[0] >> 63) & 0x1
 
     def addr(self):
         return self.regs[1]
@@ -92,15 +110,16 @@ class MemEP(EP):
         self.regs[0] |= (flags & 0xF) << 19
 
     def __repr__(self):
-        return "Mem [chip={}, tile={}, act={:#x}, addr={:#x}, size={:#x}, flags={}]".format(
-            self.chip(), modid_to_tile(self.tile()), self.act(), self.addr(), self.size(), self.flags()
+        return "Mem [chip={}, tile={}, act={:#x}, gen={}, dynamic={}, frozen={}, addr={:#x}, size={:#x}, flags={}]".format(
+            self.chip(), modid_to_tile(self.tile()), self.act(), self.gen(), self.dynamic(), self.frozen(), self.addr(),
+            self.size(), self.flags()
         )
 
 class SendEP(EP):
     UNLIMITED_CRD = 0x3F
 
-    def __init__(self, regs = [EP.SEND, 0, 0]):
-        super(SendEP, self).__init__(regs)
+    def __init__(self, version, regs = [EP.SEND, 0, 0, 0]):
+        super(SendEP, self).__init__(version, regs)
 
     def tile(self):
         return (self.regs[1] >> 16) & 0xFF
@@ -120,41 +139,73 @@ class SendEP(EP):
         self.regs[1] &= ~0xFFFF
         self.regs[1] |= ep & 0xFFFF
 
+    def gen(self):
+        return (self.regs[1] >> 30) & 0xFF
+
     def label(self):
-        return self.regs[2] & 0xFFFFFFFF
+        return self.regs[2]
     def set_label(self, label):
-        self.regs[2] &= ~0xFFFFFFFF
-        self.regs[2] |= label & 0xFFFFFFFF
+        self.regs[2] = label
 
     def msg_size(self):
-        return (self.regs[0] >> 31) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 31) & 0x3F
+        else:
+            return (self.regs[0] >> 33) & 0x3F
     def set_msg_size(self, size):
-        self.regs[0] &= ~(0x3F << 31)
-        self.regs[0] |= (size & 0x3F) << 31
+        if self.version < 3:
+            self.regs[0] &= ~(0x3F << 31)
+            self.regs[0] |= (size & 0x3F) << 31
+        else:
+            self.regs[0] &= ~(0x3F << 33)
+            self.regs[0] |= (size & 0x3F) << 33
 
     def max_crd(self):
-        return (self.regs[0] >> 25) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 25) & 0x3F
+        else:
+            return (self.regs[0] >> 26) & 0x7F
     def cur_crd(self):
-        return (self.regs[0] >> 19) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 19) & 0x3F
+        else:
+            return (self.regs[0] >> 19) & 0x7F
     def set_crd(self, crd):
-        self.regs[0] &= ~((0x3F << 25) | (0x3F << 19))
-        self.regs[0] |= (crd & 0x3F) << 25
-        self.regs[0] |= (crd & 0x3F) << 19
+        if self.version < 3:
+            self.regs[0] &= ~((0x3F << 25) | (0x3F << 19))
+            self.regs[0] |= (crd & 0x3F) << 25
+            self.regs[0] |= (crd & 0x3F) << 19
+        else:
+            self.regs[0] &= ~((0x7F << 26) | (0x7F << 19))
+            self.regs[0] |= (crd & 0x7F) << 26
+            self.regs[0] |= (crd & 0x7F) << 19
 
     def is_reply(self):
-        return (self.regs[0] >> 53) & 0x1
+        if self.version < 3:
+            return (self.regs[0] >> 55) & 0x1
+        else:
+            return (self.regs[0] >> 53) & 0x1
     def crd_ep(self):
-        return (self.regs[0] >> 37) & 0xFFFF
+        if self.version < 3:
+            return (self.regs[0] >> 37) & 0xFFFF
+        else:
+            return (self.regs[0] >> 39) & 0xFFFF
+
+    def dynamic(self):
+        return (self.regs[0] >> 62) & 0x1
+
+    def frozen(self):
+        return (self.regs[0] >> 63) & 0x1
 
     def __repr__(self):
-        return "Send[dst={}-{}:{}, act={:#x}, label={:#x}, msgsz=2^{}, crd={}:{}, reply={}]".format(
-            self.chip(), modid_to_tile(self.tile()), self.ep(), self.act(), self.label(), self.msg_size(), self.cur_crd(),
-            self.max_crd(), self.is_reply()
+        return "Send[dst={}-{}:ep{} gen{}, act={:#x}, label={:#x}, msgsz=2^{}, crd={}:{}, reply={}, dynamic={}, frozen={}]".format(
+            self.chip(), modid_to_tile(self.tile()), self.ep(), self.gen(), self.act(), self.label(), self.msg_size(), self.cur_crd(),
+            self.max_crd(), self.is_reply(), self.dynamic(), self.frozen()
         )
 
 class RecvEP(EP):
-    def __init__(self, regs = [EP.RECEIVE, 0, 0]):
-        super(RecvEP, self).__init__(regs)
+    def __init__(self, version, regs = [EP.RECEIVE, 0, 0, 0]):
+        super(RecvEP, self).__init__(version, regs)
 
     def buffer(self):
         return self.regs[1]
@@ -162,16 +213,30 @@ class RecvEP(EP):
         self.regs[1] = buffer
 
     def slot_size(self):
-        return (self.regs[0] >> 41) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 41) & 0x3F
+        else:
+            return (self.regs[0] >> 42) & 0x3F
     def set_slot_size(self, size):
-        self.regs[0] &= ~(0x3F << 41)
-        self.regs[0] |= (size & 0x3F) << 41
+        if self.version < 3:
+            self.regs[0] &= ~(0x3F << 42)
+            self.regs[0] |= (size & 0x3F) << 42
+        else:
+            self.regs[0] &= ~(0x3F << 41)
+            self.regs[0] |= (size & 0x3F) << 41
 
     def slots(self):
-        return (self.regs[0] >> 35) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 35) & 0x3F
+        else:
+            return (self.regs[0] >> 35) & 0x7F
     def set_slots(self, slots):
-        self.regs[0] &= ~(0x3F << 35)
-        self.regs[0] |= (slots & 0x3F) << 35
+        if self.version < 3:
+            self.regs[0] &= ~(0x3F << 35)
+            self.regs[0] |= (slots & 0x3F) << 35
+        else:
+            self.regs[0] &= ~(0x7F << 35)
+            self.regs[0] |= (slots & 0x7F) << 35
 
     def reply_eps(self):
         return (self.regs[0] >> 19) & 0xFFFF
@@ -180,16 +245,34 @@ class RecvEP(EP):
         self.regs[0] |= (eps & 0xFFFF) << 19
 
     def unread(self):
-        return self.regs[2] >> 32
+        if self.version < 3:
+            return self.regs[2] >> 32
+        else:
+            return self.regs[3]
     def occupied(self):
-        return self.regs[2] & 0xFFFFFFFF
+        if self.version < 3:
+            return self.regs[2] & 0xFFFFFFFF
+        else:
+            return self.regs[2]
     def rpos(self):
-        return (self.regs[0] >> 53) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 53) & 0x3F
+        else:
+            return (self.regs[0] >> 55) & 0x7F
     def wpos(self):
-        return (self.regs[0] >> 47) & 0x3F
+        if self.version < 3:
+            return (self.regs[0] >> 47) & 0x3F
+        else:
+            return (self.regs[0] >> 48) & 0x7F
+
+    def dynamic(self):
+        return (self.regs[0] >> 62) & 0x1
+
+    def frozen(self):
+        return (self.regs[0] >> 63) & 0x1
 
     def __repr__(self):
-        return "Recv[buffer={:#x}, act={:#x}, slots=2^{}, slot_size=2^{}, unread={:#x}, occupied={:#x}, rpl_eps={}, rpos={}, wpos={}]".format(
+        return "Recv[buffer={:#x}, act={:#x}, slots=2^{}, slot_size=2^{}, unread={:#x}, occupied={:#x}, rpl_eps={}, rpos={}, wpos={}, dynamic={}, frozen={}]".format(
             self.buffer(), self.act(), self.slots(), self.slot_size(), self.unread(), self.occupied(),
             self.reply_eps(), self.rpos(), self.wpos()
         )

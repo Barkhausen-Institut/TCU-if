@@ -84,12 +84,15 @@ class Tile():
         r0 = self.mem[self.tcu.ep_addr(ep_id) + 0]
         r1 = self.mem[self.tcu.ep_addr(ep_id) + 8]
         r2 = self.mem[self.tcu.ep_addr(ep_id) + 16]
-        return EP.from_regs([r0, r1, r2])
+        r3 = self.mem[self.tcu.ep_addr(ep_id) + 24] if self.tcu.version > 2 else 0
+        return EP.from_regs([r0, r1, r2, r3])
 
     def tcu_set_ep(self, ep_id, ep):
         self.mem[self.tcu.ep_addr(ep_id) + 0] = ep.regs[0]
         self.mem[self.tcu.ep_addr(ep_id) + 8] = ep.regs[1]
         self.mem[self.tcu.ep_addr(ep_id) + 16] = ep.regs[2]
+        if self.tcu.version > 2:
+            self.mem[self.tcu.ep_addr(ep_id) + 24] = ep.regs[3]
 
     def tcu_set_features(self, priv, vm, ctxsw):
         flags = ((ctxsw & 0x1) << 2) | ((vm & 0x1) << 1) | (priv & 0x1)

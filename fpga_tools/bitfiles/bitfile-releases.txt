@@ -304,3 +304,8 @@ fpga_top_v4.10.6 (20.08.2025)
     - TCU: on PMP fail, core gets zeros for reads and writes are ignored
     - TCU: PRIV_CTRL reg allows to enable/disable CU requests on PMP fails
     - TCU fix in excl. region checks
+
+fpga_top_v4.10.7 (12.09.2025)
+    - same top-level as fpga_top_v4.10.0, but Rocket cores at PM5, PM6, PM7 (instead of BOOM)
+    - TCU: added more logging (NoC, PMP, debug print)
+    - increased number of EPs in all tiles to 512

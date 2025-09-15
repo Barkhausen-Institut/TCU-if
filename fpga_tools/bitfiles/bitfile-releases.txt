@@ -309,3 +309,8 @@ fpga_top_v4.10.7 (12.09.2025)
     - same top-level as fpga_top_v4.10.0, but Rocket cores at PM5, PM6, PM7 (instead of BOOM)
     - TCU: added more logging (NoC, PMP, debug print)
     - increased number of EPs in all tiles to 512
+
+fpga_top_v4.10.8 (15.09.2025)
+    - same top-level as fpga_top_v4.10.7, BOOM cores readded at PM5, PM6, PM7
+    - TCU: added timeouts
+    - BOOM: added second trace memory for second trace interface

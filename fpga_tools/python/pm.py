@@ -9,9 +9,6 @@ class RocketConfigReg(Enum):
     TRACE_ENABLE = 8
     TRACE_IDX = 9
     TRACE_COUNT = 10
-    CHIPLET_MEM_DELAY = 12
-    CHIPLET_MMIO_DELAY = 13
-    CHIPLET_TCU_CACHE_DELAY = 14
 
 class PM():
     #Rocket interrupt
@@ -120,13 +117,3 @@ class PM():
                 fh.write("{:4d}: {:#010x} {:#010x} {:d} {:d} {:d} {:#018x} {:#010x}\n".format(i>>2, trace_addr, trace_opcode, trace_priv, trace_except, trace_int, trace_cause, trace_tval))
 
         fh.close()
-
-    #delays of emulated chiplet interfaces
-    def rocket_setChipletMemDelay(self, read_dly, write_dly):
-        self.mem[self.tcu.config_reg_addr(RocketConfigReg.CHIPLET_MEM_DELAY)] = (write_dly << 16) | read_dly
-
-    def rocket_setChipletMmioDelay(self, read_dly, write_dly):
-        self.mem[self.tcu.config_reg_addr(RocketConfigReg.CHIPLET_MMIO_DELAY)] = (write_dly << 16) | read_dly
-
-    def rocket_setChipletTCUCacheDelay(self, read_dly, write_dly):
-        self.mem[self.tcu.config_reg_addr(RocketConfigReg.CHIPLET_TCU_CACHE_DELAY)] = (write_dly << 16) | read_dly

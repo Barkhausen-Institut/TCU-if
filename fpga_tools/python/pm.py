@@ -7,8 +7,10 @@ class RocketConfigReg(Enum):
     TCU_AXI_BRIDGE_ERROR = 6
     MEM_AXI_BRIDGE_ERROR = 7
     TRACE_ENABLE = 8
-    TRACE_IDX = 9
-    TRACE_COUNT = 10
+    TRACE_IDX0 = 9
+    TRACE_COUNT0 = 10
+    TRACE_IDX1 = 11
+    TRACE_COUNT1 = 12
 
 class PM():
     #Rocket interrupt
@@ -66,7 +68,17 @@ class PM():
     def rocket_disableTrace(self):
         self.mem[self.tcu.config_reg_addr(RocketConfigReg.TRACE_ENABLE)] = 0
 
-    def rocket_printTrace(self, filename, all=False):
+    def rocket_printTrace(self, filename, all=False, traceNum=0):
+        #select trace memory
+        if traceNum == 0:
+            reg_trace_idx = RocketConfigReg.TRACE_IDX0
+            reg_trace_count = RocketConfigReg.TRACE_COUNT0
+            mem_offset = 0
+        else:
+            reg_trace_idx = RocketConfigReg.TRACE_IDX1
+            reg_trace_count = RocketConfigReg.TRACE_COUNT1
+            mem_offset = self.ROCKET_TRACEMEM_SIZE*32
+
         #make sure trace is stopped before reading it
         self.rocket_disableTrace()
 
@@ -74,18 +86,18 @@ class PM():
         fh = open(filename, 'w')
 
         #read trace count
-        trace_count = self.mem[self.tcu.config_reg_addr(RocketConfigReg.TRACE_COUNT)]
+        trace_count = self.mem[self.tcu.config_reg_addr(reg_trace_count) + mem_offset]
         if all:
             trace_count = self.ROCKET_TRACEMEM_SIZE
 
-        print("%s: Number of Rocket instruction traces: %d" % (self.name, trace_count))
-        fh.write("%s: Number of Rocket instruction traces: %d\n" % (self.name, trace_count))
+        print("%s: Number of Rocket instruction traces (mem %d): %d" % (self.name, traceNum+1, trace_count))
+        fh.write("%s: Number of Rocket instruction traces (mem %d): %d\n" % (self.name, traceNum+1, trace_count))
 
         if trace_count > 0:
-            fh.write("columns: addr opcode priv.-level exception interrupt cause tval\n")
+            fh.write("columns: cycle addr opcode priv.-level exception interrupt cause tval\n")
 
             #read current idx to calculate address of first trace
-            trace_current_idx = self.mem[self.tcu.config_reg_addr(RocketConfigReg.TRACE_IDX)]
+            trace_current_idx = self.mem[self.tcu.config_reg_addr(reg_trace_idx) + mem_offset]
             if trace_current_idx >= trace_count:
                 trace_start_idx = trace_current_idx - trace_count
             else:
@@ -98,11 +110,11 @@ class PM():
                 tmp_count = self.ROCKET_TRACEMEM_SIZE - trace_start_idx
 
             #read traces, one trace occupies 32 byte
-            trace_data = self.mem.read_words(trace_start_addr, tmp_count*4)
+            trace_data = self.mem.read_words(trace_start_addr+mem_offset, tmp_count*4)
 
             #read the rest from start of trace memory
             if tmp_count < trace_count:
-                trace_data_rest = self.mem.read_words(self.ROCKET_TRACEMEM_BASE, (trace_count-tmp_count)*4)
+                trace_data_rest = self.mem.read_words(self.ROCKET_TRACEMEM_BASE+mem_offset, (trace_count-tmp_count)*4)
                 trace_data.extend(trace_data_rest)
 
             #print to file
@@ -113,7 +125,9 @@ class PM():
                 trace_except = (trace_data[i+1] >> 3) & 0x1
                 trace_int = (trace_data[i+1] >> 4) & 0x1
                 trace_cause = ((trace_data[i+2] & 0x1F) << 59) |  (trace_data[i+1] >> 5)
-                trace_tval = trace_data[i+2] >> 5
-                fh.write("{:4d}: {:#010x} {:#010x} {:d} {:d} {:d} {:#018x} {:#010x}\n".format(i>>2, trace_addr, trace_opcode, trace_priv, trace_except, trace_int, trace_cause, trace_tval))
+                trace_tval = (trace_data[i+2] >> 5) & 0xFFFFFFFFFF
+                trace_time = ((trace_data[i+3] & 0x1FFF) << 19) |  (trace_data[i+2] >> 45)
+                fh.write("{:4d}: {:10} {:#010x} {:#010x} {:d} {:d} {:d} {:#018x} {:#010x}\n"
+                    .format(i>>2, trace_time, trace_addr, trace_opcode, trace_priv, trace_except, trace_int, trace_cause, trace_tval))
 
         fh.close()

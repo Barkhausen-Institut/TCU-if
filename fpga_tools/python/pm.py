@@ -68,7 +68,17 @@ class PM():
     def rocket_disableTrace(self):
         self.mem[self.tcu.config_reg_addr(RocketConfigReg.TRACE_ENABLE)] = 0
 
-    def rocket_printTrace(self, filename, all=False, traceNum=0):
+    def rocket_printCombinedTrace(self, filename, trace):
+        f = open(filename, "w")
+        f.write(f"Rocket instruction trace of {self.name}:\n")
+        trace.sort(key=lambda event: event[0])
+        for ev in trace:
+            time, addr, opcode, priv, exc, irq, cause, tval = ev
+            f.write(f"{time:<10} {addr:#010x} {opcode:#010x} {priv:d} {exc:d} {irq:d} " +
+                    f"{cause:#018x} {tval:#010x}\n")
+        f.close()
+
+    def rocket_getTrace(self, all=False, traceNum=0):
         #select trace memory
         if traceNum == 0:
             reg_trace_idx = RocketConfigReg.TRACE_IDX0
@@ -82,20 +92,16 @@ class PM():
         #make sure trace is stopped before reading it
         self.rocket_disableTrace()
 
-        #open file first (reads below might fail)
-        fh = open(filename, 'w')
-
         #read trace count
         trace_count = self.mem[self.tcu.config_reg_addr(reg_trace_count) + mem_offset]
         if all:
             trace_count = self.ROCKET_TRACEMEM_SIZE
 
-        print("%s: Number of Rocket instruction traces (mem %d): %d" % (self.name, traceNum+1, trace_count))
-        fh.write("%s: Number of Rocket instruction traces (mem %d): %d\n" % (self.name, traceNum+1, trace_count))
+        print(f"{self.name}: Number of Rocket instruction traces" +
+              f"(mem {traceNum + 1}): {trace_count}")
 
+        res = []
         if trace_count > 0:
-            fh.write("columns: cycle addr opcode priv.-level exception interrupt cause tval\n")
-
             #read current idx to calculate address of first trace
             trace_current_idx = self.mem[self.tcu.config_reg_addr(reg_trace_idx) + mem_offset]
             if trace_current_idx >= trace_count:
@@ -117,7 +123,7 @@ class PM():
                 trace_data_rest = self.mem.read_words(self.ROCKET_TRACEMEM_BASE+mem_offset, (trace_count-tmp_count)*4)
                 trace_data.extend(trace_data_rest)
 
-            #print to file
+            #extract info
             for i in range(0, trace_count*4, 4):
                 trace_addr = trace_data[i] & 0xFFFFFFFF
                 trace_opcode = trace_data[i] >> 32
@@ -127,7 +133,7 @@ class PM():
                 trace_cause = ((trace_data[i+2] & 0x1F) << 59) |  (trace_data[i+1] >> 5)
                 trace_tval = (trace_data[i+2] >> 5) & 0xFFFFFFFFFF
                 trace_time = ((trace_data[i+3] & 0x1FFF) << 19) |  (trace_data[i+2] >> 45)
-                fh.write("{:4d}: {:10} {:#010x} {:#010x} {:d} {:d} {:d} {:#018x} {:#010x}\n"
-                    .format(i>>2, trace_time, trace_addr, trace_opcode, trace_priv, trace_except, trace_int, trace_cause, trace_tval))
+                res.append((trace_time, trace_addr, trace_opcode, trace_priv, trace_except,
+                            trace_int, trace_cause, trace_tval))
 
-        fh.close()
+        return res
